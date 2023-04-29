@@ -1,55 +1,105 @@
-import { TTScraper, Video } from "tiktok-scraper-ts";
-const TikTokScraper = new TTScraper();
 import fs from "fs";
 import dotenv from "dotenv";
 dotenv.config();
-
-
-import { https } from "follow-redirects";
-import { google } from "googleapis";
+import https from "https";
+//import { http, https } from "follow-redirects";
+//import { google } from "googleapis";
 //const OAuth2 = GoogleApis.auth;
 import youtube from "youtube-api";
 import CREDENTIALS from "../client_secret.json";
 import { join } from "path";
+import Reddit from "reddit";
 
-const oauth = youtube.authenticate({
-  type: "oauth",
-  client_id: CREDENTIALS.web.client_id,
-  client_secret: CREDENTIALS.web.client_secret,
-  redirect_url: CREDENTIALS.web.redirect_uris[0],
+import Snoowrap from "snoowrap";
+/* const r = new Snoowrap({
+  userAgent: "MyApp v0.1",
+  username: process.env.USERNAME as string,
+  password: process.env.PASS as string,
+  clientId: process.env.APP_ID as string,
+  clientSecret: process.env.APP_SECRET as string,
+  refreshToken: process.env.REFRESH_TOKEN as string,
+}); */
+
+const reddit = new Reddit({
+  username: process.env.USERNAME as string,
+  password: process.env.PASS as string,
+  appId: process.env.APP_ID as string,
+  appSecret: process.env.APP_SECRET as string,
 });
+
+//import fetch from "node-fetch";
 
 const REFRESH_TOKEN = process.env.REFRESH_TOKEN as string;
 const MAX_RETRIES = 5;
 const DOWNLOADS_PREFIX = "/downloads";
 const VIDEO_TITLE = "Random video";
-
+import open from "open";
+import axios from "axios";
 (async () => {
   let video,
     iteration = 0;
+  const credentials = Buffer.from(
+    `${process.env.CLIENT_ID}:${process.env.CLIENT_SECRET}`
+  ).toString("base64");
 
-  do {
-    //https://www.tiktok.com/@zywicaa/video/7224553401462443290?is_from_webapp=1&sender_device=pc
-    // second argument set to true to fetch the video without watermark
-    //      "https://www.tiktok.com/@niedaltowskifinanse/video/7199662877551201542?is_from_webapp=1&sender_device=pc",
+  var qs = require("qs");
+  var data = qs.stringify({
+    grant_type: "refresh_token",
+    username: process.env.USERNAME,
+    refresh_token: REFRESH_TOKEN,
+  });
+  var config = {
+    method: "post",
+    url: "https://www.reddit.com/api/v1/access_token",
+    headers: {
+      Authorization: "Basic " + credentials,
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    data: data,
+  };
 
-    video = await TikTokScraper.video(
-      "https://www.tiktok.com/@niedaltowskifinanse/video/7199662877551201542?is_from_webapp=1&sender_device=pc",
-      true
-    );
+  axios(config)
+    .then(async function (response) {
+      const res = response.data;
 
-    if (video) {
-      console.log(video);
-      await saveTiktokVideoFile(video);
-    }
+      let abc = await axios({
+        method: "get",
+        url: "https://oauth.reddit.com/r/nosleep/top",
+        headers: {
+          Authorization: "Bearer " + res.access_token,
+        },
+      });
+      console.log(abc);
+    })
+    .catch(function (error) {
+      console.log(error);
+    });
 
-    iteration++;
-  } while (!video && iteration < MAX_RETRIES);
+  /* 
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+    },
+    data: {
+    },
+  }); */
+  /* const response = await reddit.post("api/v1/access_token", {
+  });
+ ; */ //console.log(t);
+
+  //do {"/r/nosleep/top"
+
+  /* if (video) {
+    console.log(video);
+    //await saveTiktokVideoFile(video);
+  } */
+
+  iteration++;
+  //} while (!video && iteration < MAX_RETRIES);
 
   return;
 })();
 
-async function saveTiktokVideoFile(video: Video) {
+/* async function saveTiktokVideoFile(video) {
   const folderPath = join(__dirname, "..", DOWNLOADS_PREFIX, video.id);
   if (!fs.existsSync(folderPath)) {
     fs.mkdirSync(folderPath);
@@ -77,56 +127,23 @@ async function saveTiktokVideoFile(video: Video) {
       videoFile.close();
       console.log("Download video completed");
 
-      if (video.cover) {
-        await saveTiktokThumbnail(video, videoFile);
-      } else {
-        await uploadVideoFileToYoutube(video, videoFile.path as string);
-      }
+      //await uploadVideoFileToYoutube(video, videoFile.path as string);
     });
 
     videoFile.on("error", () => {
       fs.rmdirSync(DOWNLOADS_PREFIX + video.id);
     });
   });
-}
+} */
 
-async function saveTiktokThumbnail(video: Video, videoFile: fs.WriteStream) {
-  const thumbnailFile = fs.createWriteStream(
-    join(__dirname, "..", DOWNLOADS_PREFIX, video.id, video.id + ".jpg")
-  );
-
-  https.get(video.cover!, (response) => {
-    if (response.statusCode != 200) {
-      console.log(
-        "Oops, got a " +
-          response.statusCode +
-          " while trying to download thumbnail for " +
-          video.id
-      );
-      return;
-    }
-
-    response.pipe(thumbnailFile);
-
-    // after download completed close filestream
-    thumbnailFile.on("finish", async () => {
-      thumbnailFile.close();
-      console.log("Download cover completed");
-
-      await uploadVideoFileToYoutube(
-        video,
-        videoFile.path as string,
-        thumbnailFile.path as string
-      );
-    });
+async function uploadVideoFileToYoutube(video: any, filePath: string) {
+  const oauth = youtube.authenticate({
+    type: "oauth",
+    client_id: CREDENTIALS.web.client_id,
+    client_secret: CREDENTIALS.web.client_secret,
+    redirect_url: CREDENTIALS.web.redirect_uris[0],
   });
-}
 
-async function uploadVideoFileToYoutube(
-  video: Video,
-  filePath: string,
-  thumbnailPath?: string
-) {
   oauth.setCredentials({
     refresh_token: REFRESH_TOKEN,
   });
@@ -152,17 +169,11 @@ async function uploadVideoFileToYoutube(
         snippet: {
           title: `${VIDEO_TITLE} #${folders.length}`,
           // Append #Short tag to video description
-          description: `
-            ${VIDEO_TITLE} #${folders.length}
+          description: `${VIDEO_TITLE} #${folders.length}
 
-            ${tags.join(" ")}`,
+          ${tags.join(" ")}`,
           tags,
           categoryId: "24", // Entertainment category
-          thumbnails: {
-            default: {
-              url: "https://i.pravatar.cc/", //TODO sprawdzić czy trzeba pobierac miniatury
-            },
-          },
         },
         status: {
           embeddable: true,
@@ -171,7 +182,7 @@ async function uploadVideoFileToYoutube(
         },
       },
       // required
-      part: [],
+      part: ["snippet", "status"],
 
       // Create the readable stream to upload the video
       media: {
@@ -179,11 +190,9 @@ async function uploadVideoFileToYoutube(
       },
     },
     (err, data) => {
-      console.log(err, data);
       if (err) throw err;
 
       console.log(`Video #${folders.length} uploaded successfully`);
-      console.log(err, data);
       process.exit();
     }
   );
