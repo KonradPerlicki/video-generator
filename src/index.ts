@@ -1,100 +1,65 @@
 import fs from "fs";
 import dotenv from "dotenv";
 dotenv.config();
-import https from "https";
-//import { http, https } from "follow-redirects";
-//import { google } from "googleapis";
-//const OAuth2 = GoogleApis.auth;
 import youtube from "youtube-api";
 import CREDENTIALS from "../client_secret.json";
 import { join } from "path";
-import Reddit from "reddit";
+import qs from "qs";
+import axios from "axios";
 
-import Snoowrap from "snoowrap";
-/* const r = new Snoowrap({
-  userAgent: "MyApp v0.1",
-  username: process.env.USERNAME as string,
-  password: process.env.PASS as string,
-  clientId: process.env.APP_ID as string,
-  clientSecret: process.env.APP_SECRET as string,
-  refreshToken: process.env.REFRESH_TOKEN as string,
-}); */
-
-const reddit = new Reddit({
-  username: process.env.USERNAME as string,
-  password: process.env.PASS as string,
-  appId: process.env.APP_ID as string,
-  appSecret: process.env.APP_SECRET as string,
-});
-
-//import fetch from "node-fetch";
-
-const REFRESH_TOKEN = process.env.REFRESH_TOKEN as string;
-const MAX_RETRIES = 5;
 const DOWNLOADS_PREFIX = "/downloads";
 const VIDEO_TITLE = "Random video";
-import open from "open";
-import axios from "axios";
+
 (async () => {
-  let video,
-    iteration = 0;
   const credentials = Buffer.from(
     `${process.env.CLIENT_ID}:${process.env.CLIENT_SECRET}`
   ).toString("base64");
 
-  var qs = require("qs");
-  var data = qs.stringify({
+  const data = qs.stringify({
     grant_type: "refresh_token",
-    username: process.env.USERNAME,
-    refresh_token: REFRESH_TOKEN,
+    username: process.env.REDDIT_USERNAME,
+    refresh_token: process.env.REFRESH_TOKEN,
   });
-  var config = {
-    method: "post",
-    url: "https://www.reddit.com/api/v1/access_token",
-    headers: {
-      Authorization: "Basic " + credentials,
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
-    data: data,
-  };
 
-  axios(config)
-    .then(async function (response) {
-      const res = response.data;
+  try {
+    const accessTokenResponse = await axios({
+      method: "post",
+      url: "https://www.reddit.com/api/v1/access_token",
+      headers: {
+        Authorization: "Basic " + credentials,
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      data,
+    });
 
-      let abc = await axios({
+    if (accessTokenResponse.data.access_token) {
+      const accessToken = accessTokenResponse.data.access_token;
+
+      const postListing = await axios({
         method: "get",
         url: "https://oauth.reddit.com/r/nosleep/top",
         headers: {
-          Authorization: "Bearer " + res.access_token,
+          Authorization: "Bearer " + accessToken,
         },
       });
-      console.log(abc);
-    })
-    .catch(function (error) {
-      console.log(error);
-    });
-
-  /* 
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
-    },
-    data: {
-    },
-  }); */
-  /* const response = await reddit.post("api/v1/access_token", {
-  });
- ; */ //console.log(t);
-
-  //do {"/r/nosleep/top"
-
-  /* if (video) {
-    console.log(video);
-    //await saveTiktokVideoFile(video);
-  } */
-
-  iteration++;
-  //} while (!video && iteration < MAX_RETRIES);
+      if (postListing.data.data) {
+        const data = postListing.data.data;
+        const posts = data.children;
+        console.log(data);
+      } else {
+        console.log("An error occured while getting list of posts...");
+        process.exit();
+      }
+    } else {
+      console.log(
+        "Something went wrong... access token does not exist in response"
+      );
+      process.exit();
+    }
+  } catch (e: unknown) {
+    console.log(e);
+    process.exit();
+  }
 
   return;
 })();
