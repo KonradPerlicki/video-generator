@@ -6,6 +6,7 @@ import CREDENTIALS from "../client_secret.json";
 import { join } from "path";
 import qs from "qs";
 import axios from "axios";
+import { Listing } from "reddit-types";
 
 const DOWNLOADS_PREFIX = "/downloads";
 const VIDEO_TITLE = "Random video";
@@ -35,17 +36,17 @@ const VIDEO_TITLE = "Random video";
     if (accessTokenResponse.data.access_token) {
       const accessToken = accessTokenResponse.data.access_token;
 
-      const postListing = await axios({
+      const postListing = await axios<Listing>({
         method: "get",
         url: "https://oauth.reddit.com/r/nosleep/top",
         headers: {
           Authorization: "Bearer " + accessToken,
         },
       });
-      if (postListing.data.data) {
+      if (postListing.data) {
         const data = postListing.data.data;
         const posts = data.children;
-        console.log(data);
+        console.log(postListing.data);
       } else {
         console.log("An error occured while getting list of posts...");
         process.exit();
@@ -110,7 +111,7 @@ async function uploadVideoFileToYoutube(video: any, filePath: string) {
   });
 
   oauth.setCredentials({
-    refresh_token: REFRESH_TOKEN,
+    refresh_token: process.env.REFRESH_TOKEN,
   });
 
   const accessToken = await oauth.getAccessToken();
