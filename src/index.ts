@@ -8,14 +8,70 @@ import qs from "qs";
 import axios from "axios";
 import { Listing } from "reddit-types";
 import Screenshoter from "./Screenshoter";
+import flffmpeg from "fluent-ffmpeg";
 
 const DOWNLOADS_PREFIX = "/downloads";
 const VIDEO_TITLE = "Random video";
 const files = fs.readdirSync(join(__dirname, "..", "backgroundvideo"));
 
-console.log(files);
-
 (async () => {
+  try {
+    flffmpeg(join(__dirname, "..", "backgroundvideo", files[0]))
+      .setStartTime("00:00:01")
+      .setDuration("10")
+      .addInput(join(__dirname, "..", "tmp", "title.png"))
+      .addInput(join(__dirname, "..", "tmp", "screenshot.png"))
+      .complexFilter([
+        {
+          filter: "scale",
+          options: {
+            w: "-1",
+            h: "1280",
+          },
+          outputs: "scaled",
+        },
+        {
+          filter: "crop",
+          options: { w: "min(720,1*ih)", h: "min(iw/1,ih)" },
+          outputs: "cropped",
+          inputs: "scaled",
+        },
+        {
+          filter: "boxblur",
+          options: {
+            luma_power: 10,
+          },
+          outputs: "blurred",
+          inputs: "cropped",
+        },
+        {
+          filter: "overlay",
+          inputs: "blurred",
+          options: {
+            enable: "between(t,2.5,4)",
+          },
+          outputs: "first",
+        },
+        {
+          filter: "overlay",
+          inputs: "first",
+          options: {
+            enable: "between(t,4.5,6)",
+          },
+        },
+      ])
+      .output("video_out.mp4")
+      .on("end", function (err) {
+        if (!err) {
+          console.log("conversion Done");
+        }
+      })
+      .on("error", (err) => console.log("error: ", err))
+      .run();
+  } catch (e) {
+    console.log(e);
+  }
+  return;
   try {
     const t = new Screenshoter();
     await t.init(
