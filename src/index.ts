@@ -7,11 +7,30 @@ import { join } from "path";
 import qs from "qs";
 import axios from "axios";
 import { Listing } from "reddit-types";
+import Screenshoter from "./Screenshoter";
 
 const DOWNLOADS_PREFIX = "/downloads";
 const VIDEO_TITLE = "Random video";
+const files = fs.readdirSync(join(__dirname, "..", "backgroundvideo"));
+
+console.log(files);
 
 (async () => {
+  try {
+    const t = new Screenshoter();
+    await t.init(
+      "https://www.reddit.com/r/nosleep/comments/132sdix/i_woke_up_in_the_middle_of_the_night_if_i_go_back/"
+    );
+    await t.screenshotPage(
+      "https://www.reddit.com/r/nosleep/comments/132sdix/i_woke_up_in_the_middle_of_the_night_if_i_go_back/"
+    );
+    await t.takeScreenshotOfBody("./tmp");
+
+    await t.close();
+  } catch (e) {
+    console.log(e);
+  }
+  return;
   const credentials = Buffer.from(
     `${process.env.CLIENT_ID}:${process.env.CLIENT_SECRET}`
   ).toString("base64");
