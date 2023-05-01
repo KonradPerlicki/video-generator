@@ -19,6 +19,7 @@
     "fluent-ffmpeg": "^2.1.2",
     "google-auth-library": "^8.7.0",
     "googleapis": "^118.0.0",
+    "join-images": "^1.1.5",
     "puppeteer": "^19.11.1",
     "qs": "^6.11.1",
     "youtube-api": "^3.0.1"

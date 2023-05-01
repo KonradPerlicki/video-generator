@@ -1,10 +1,25 @@
-import { Page, Browser, launch } from "puppeteer";
+import { Page, Browser, launch, TimeoutError } from "puppeteer";
 import dotenv from "dotenv";
 dotenv.config();
+import joinImages from "join-images";
+import { join } from "path";
+import fs from "node:fs/promises";
+
+const selectors = {
+  title: "[slot='title']",
+  body: "[id*='post-rtjson-content']",
+  header: "[slot='commentsPagePostDescriptor']",
+  comment: "#id",
+} as const;
+const elements = ["title", "body", "header", "comment"] as const;
+export type RedditElements = (typeof elements)[number];
+const screenShotFolderPath = join(__dirname, "..", "screenshots");
 
 export default class Screenshoter {
   private browser: Browser;
   private page: Page;
+  private readonly viewPortWidth = 1920;
+  private readonly viewPortHeight = 1080;
 
   public async init(url: string) {
     this.browser = await launch({
@@ -24,42 +39,22 @@ export default class Screenshoter {
     await this.gotoPage(url);
   }
 
-  public async screenshotPage(url: string) {
-    const page = await this.browser.newPage();
-
-    await page.emulateMediaFeatures([
-      {
-        name: "prefers-color-scheme",
-        value: "dark",
-      },
-    ]);
-    await page.setViewport({
-      width: 1920,
-      height: 1080,
-    });
-    await page.goto(url);
-    const screenshot = await page.screenshot({
-      path: "./tmp/screenshot.png",
-    });
-    await page.close();
-    return screenshot;
+  public static async removeScreenshots() {
+    for (const file of await fs.readdir(screenShotFolderPath)) {
+      await fs.unlink(join(screenShotFolderPath, file));
+    }
   }
 
   public async close() {
+    console.log("closing browser");
     await this.browser.close();
   }
 
-  public async gotoPage(url: string) {
+  private async gotoPage(url: string) {
     const page = await this.browser.newPage();
     await page.goto(url, {
       waitUntil: "domcontentloaded",
     });
-
-    this.page = page;
-  }
-
-  public async takeScreenshotOfElement(selector: string, savePath: string) {
-    const page = this.page;
     await page.emulateMediaFeatures([
       {
         name: "prefers-color-scheme",
@@ -67,32 +62,56 @@ export default class Screenshoter {
       },
     ]);
     await page.setViewport({
-      width: 1920,
-      height: 1080,
-    });
-    const button = (
-      await page.evaluateHandle(
-        `document.querySelector("[id*='read-more-button']")`
-      )
-    ).asElement();
-    button.click();
-
-    await page.screenshot({
-      path: "./tmp/screenshotb.png",
+      width: this.viewPortWidth,
+      height: this.viewPortHeight,
     });
 
-    await page.waitForSelector("[id*='post-rtjson-content']");
-    const element = await page.$("[id*='post-rtjson-content']");
+    //check if post was deleted
+    try {
+      await page.waitForSelector("[slot='post-message-banner']", {
+        timeout: 2000,
+      });
+    } catch (e) {
+      if (e instanceof TimeoutError) {
+        console.log("Post available");
+      } else {
+        console.log("Post removed");
+        //TODO what next?
+      }
+    }
+
+    this.page = page;
+  }
+
+  public async takeScreenshotOfElement(
+    elementName: RedditElements,
+    savePath: string
+  ) {
+    const page = this.page;
+    const selector = selectors[elementName];
+
+    if (elementName === "body") {
+      //handle read-more button to retrieve whole body of post
+      try {
+        const button = await page.evaluateHandle(
+          `document.querySelector("[id*='read-more-button']")`
+        );
+        if (button) await button.asElement().click();
+      } catch (e) {}
+    }
+
+    await page.waitForSelector(selector);
+    const element = await page.$(selector);
     try {
       if (!element) {
-        console.log("Element not found: " + selector);
+        console.log("Element not found: " + elementName);
       } else {
         await element.screenshot({
           path: savePath,
           captureBeyondViewport: true,
         });
 
-        console.log("saved body");
+        console.log(`saved ${elementName} ${selector}`);
       }
     } catch (e) {
       console.log("Error taking screenshot of element: " + selector, e);
@@ -100,23 +119,40 @@ export default class Screenshoter {
   }
 
   public async takeScreenshotOfComment(id: string, assetsDir: string) {
-    const selector = `#${id}`;
     const savePath = `${assetsDir}/comments/${id}.png`;
-    await this.takeScreenshotOfElement(selector, savePath);
+    await this.takeScreenshotOfElement("comment", savePath);
     return { id: id, path: savePath };
   }
 
-  public async takeScreenshotOfBody(assetsDir: string) {
-    const selector = `[id*='post-rtjson-content']`;
-    const savePath = `${assetsDir}/body.png`;
-    await this.takeScreenshotOfElement(selector, savePath);
-    return { id: "title", path: savePath };
+  public async takeScreenshotOfBody() {
+    const savePath = `${screenShotFolderPath}/body.png`;
+    await this.takeScreenshotOfElement("body", savePath);
+    return { savePath };
   }
 
-  public async takeScreenshotOfTitle(assetsDir: string) {
-    const selector = '[slot="title"]';
-    const savePath = `${assetsDir}/title.png`;
-    await this.takeScreenshotOfElement(selector, savePath);
-    return { id: "title", path: savePath };
+  public async takeScreenshotOfTitleWithHeader() {
+    const headerPath = `${screenShotFolderPath}/header.png`;
+    await this.takeScreenshotOfElement("header", headerPath);
+
+    const titlePath = `${screenShotFolderPath}/title.png`;
+    await this.takeScreenshotOfElement("title", titlePath);
+
+    const mergedImagesPath = `${screenShotFolderPath}/mergedImages.png`;
+    await mergeImages([headerPath, titlePath], mergedImagesPath);
+    return { headerPath, titlePath };
   }
+}
+
+async function mergeImages(images: string[], savePath: string) {
+  const mergedImages = await joinImages(images, {
+    direction: "vertical",
+    //colors from reddit's dark theme
+    color: {
+      r: 11,
+      b: 20,
+      g: 22,
+    },
+  });
+
+  await mergedImages.toFile(savePath);
 }

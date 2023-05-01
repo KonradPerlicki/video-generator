@@ -8,7 +8,7 @@ import qs from "qs";
 import axios from "axios";
 import { Listing } from "reddit-types";
 import Screenshoter from "./Screenshoter";
-import flffmpeg from "fluent-ffmpeg";
+import { editVideo } from "./editVideo";
 
 const DOWNLOADS_PREFIX = "/downloads";
 const VIDEO_TITLE = "Random video";
@@ -16,73 +16,22 @@ const files = fs.readdirSync(join(__dirname, "..", "backgroundvideo"));
 
 (async () => {
   try {
-    flffmpeg(join(__dirname, "..", "backgroundvideo", files[0]))
-      .setStartTime("00:00:01")
-      .setDuration("10")
-      .addInput(join(__dirname, "..", "tmp", "title.png"))
-      .addInput(join(__dirname, "..", "tmp", "screenshot.png"))
-      .complexFilter([
-        {
-          filter: "scale",
-          options: {
-            w: "-1",
-            h: "1280",
-          },
-          outputs: "scaled",
-        },
-        {
-          filter: "crop",
-          options: { w: "min(720,1*ih)", h: "min(iw/1,ih)" },
-          outputs: "cropped",
-          inputs: "scaled",
-        },
-        {
-          filter: "boxblur",
-          options: {
-            luma_power: 10,
-          },
-          outputs: "blurred",
-          inputs: "cropped",
-        },
-        {
-          filter: "overlay",
-          inputs: "blurred",
-          options: {
-            enable: "between(t,2.5,4)",
-          },
-          outputs: "first",
-        },
-        {
-          filter: "overlay",
-          inputs: "first",
-          options: {
-            enable: "between(t,4.5,6)",
-          },
-        },
-      ])
-      .output("video_out.mp4")
-      .on("end", function (err) {
-        if (!err) {
-          console.log("conversion Done");
-        }
-      })
-      .on("error", (err) => console.log("error: ", err))
-      .run();
-  } catch (e) {
-    console.log(e);
-  }
-  return;
-  try {
-    const t = new Screenshoter();
-    await t.init(
-      "https://www.reddit.com/r/nosleep/comments/132sdix/i_woke_up_in_the_middle_of_the_night_if_i_go_back/"
+    const screenshoter = new Screenshoter();
+    await screenshoter.init(
+      "https://www.reddit.com/r/selenium/comments/suuooq/how_to_handle_interact_with_shadow_root_elements/"
     );
-    await t.screenshotPage(
-      "https://www.reddit.com/r/nosleep/comments/132sdix/i_woke_up_in_the_middle_of_the_night_if_i_go_back/"
-    );
-    await t.takeScreenshotOfBody("./tmp");
 
-    await t.close();
+    await screenshoter.takeScreenshotOfBody();
+    await screenshoter.takeScreenshotOfTitleWithHeader();
+    await screenshoter.close();
+
+    await editVideo(files[0], [
+      join(__dirname, "..", "screenshots", "title.png"),
+      join(__dirname, "..", "screenshots", "mergedImages.png"),
+    ]);
+    console.log(2);
+
+    //await t.removeScreenshots();
   } catch (e) {
     console.log(e);
   }
