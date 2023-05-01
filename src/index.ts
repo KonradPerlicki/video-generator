@@ -13,26 +13,26 @@ import { editVideo } from "./editVideo";
 const DOWNLOADS_PREFIX = "/downloads";
 const VIDEO_TITLE = "Random video";
 const files = fs.readdirSync(join(__dirname, "..", "backgroundvideo"));
-const PARAGRAPHS_PER_SLIDE = 6;
+const PARAGRAPHS_PER_SLIDE = 4; //TODO refactor to base on text length
+const backgroundVideo = files[0]; //TODO add more backgrounds, rotate them
 
 (async () => {
   try {
+    const overlayImages: string[] = [];
     const screenshoter = new Screenshoter(PARAGRAPHS_PER_SLIDE);
     await screenshoter.init(
       "https://www.reddit.com/r/nosleep/comments/133t6o0/should_we_cancel_the_book_burning_disturbing/"
     );
 
-    await screenshoter.takeScreenshotOfBody();
     const { mergedTitleHeaderPath } = await screenshoter.takeScreenshotOfTitleWithHeader();
+    overlayImages.push(mergedTitleHeaderPath);
+
+    await screenshoter.takeScreenshotOfBody();
+    overlayImages.push(...screenshoter.getMergedBodyImagesPath());
+
     await screenshoter.close();
 
-    return;
-    await editVideo(files[0], [
-      join(__dirname, "..", "screenshots", "title.png"),
-      join(__dirname, "..", "screenshots", "mergedImages.png"),
-    ]);
-
-    //await t.removeScreenshots();
+    await editVideo(backgroundVideo, overlayImages);
   } catch (e) {
     console.log(e);
   }

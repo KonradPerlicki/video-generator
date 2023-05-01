@@ -29,19 +29,24 @@ export async function editVideo(videoFile: string, screenshots: string[]) {
   ];
   const video = ffmpeg(join(__dirname, "..", "backgroundvideo", videoFile))
     .setStartTime("00:00:01")
-    .setDuration("8");
+    .setDuration("12");
 
+  let startOverlay = 0;
+  let stopOverlay = 1; //first file mp3 length
   for (const [index, screenshot] of screenshots.entries()) {
     video.addInput(screenshot);
+    //startOverlay += mp3 file length
     const filter: FilterSpecification = {
       filter: "overlay",
       inputs: index === 0 ? "blurred" : `overlay${index - 1}`,
       options: {
-        enable: `between(t,${index + 1},${(index + 1) * 2})`, //TODO array needs to contain displaying image time
+        y: "(H-h)/2",
+        enable: `between(t,${startOverlay},${stopOverlay})`, //TODO array needs to contain displaying image time
       },
       outputs: `overlay${index}`,
     };
-
+    stopOverlay += 1;
+    startOverlay += 1;
     //last filter must be without output property
     if (index === screenshots.length - 1) {
       delete filter.outputs;
@@ -56,7 +61,7 @@ export async function editVideo(videoFile: string, screenshots: string[]) {
     .on("end", async function (err) {
       if (!err) {
         console.log("Video conversion done");
-        await Screenshoter.removeScreenshots();
+        //await Screenshoter.removeScreenshots();
         //TODO upload video logic here
       }
     })

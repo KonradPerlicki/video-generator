@@ -4,6 +4,7 @@ dotenv.config();
 import joinImages from "join-images";
 import { join } from "path";
 import fs from "node:fs/promises";
+import sharp from "sharp";
 
 const selectors = {
   title: "[slot='title']",
@@ -18,8 +19,9 @@ const screenShotFolderPath = join(__dirname, "..", "screenshots");
 export default class Screenshoter {
   private browser: Browser;
   private page: Page;
-  private readonly viewPortWidth = 1920;
+  private readonly viewPortWidth = 500;
   private readonly viewPortHeight = 1080;
+  private mergedBodyImagesPath: string[] = [];
 
   constructor(private readonly paragraphsPerSlide: number) {}
 
@@ -89,6 +91,10 @@ export default class Screenshoter {
     }
 
     this.page = page;
+  }
+
+  public getMergedBodyImagesPath() {
+    return this.mergedBodyImagesPath;
   }
 
   public async takeScreenshotOfElement(elementName: RedditElements, savePath?: string) {
@@ -166,6 +172,7 @@ export default class Screenshoter {
 
   public async mergeParagraphPhotos(photosPath: string[], index: number) {
     const mergedPath = join(screenShotFolderPath, `body${index}.png`);
+    this.mergedBodyImagesPath.push(mergedPath);
     await mergeImages(photosPath, mergedPath, true);
     return mergedPath;
   }
@@ -182,7 +189,9 @@ async function mergeImages(images: string[], savePath: string, deleteMergedImage
     },
   });
 
-  await mergedImages.toFile(savePath);
+  await mergedImages.toFile("tmp.png");
+  await sharp("tmp.png").resize(720).toFile(savePath);
+  await fs.unlink("tmp.png");
 
   if (deleteMergedImages) {
     for (const image of images) {

@@ -22,6 +22,7 @@
     "join-images": "^1.1.5",
     "puppeteer": "^19.11.1",
     "qs": "^6.11.1",
+    "sharp": "^0.32.1",
     "youtube-api": "^3.0.1"
   },
   "devDependencies": {
