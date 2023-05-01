@@ -13,32 +13,31 @@ import { editVideo } from "./editVideo";
 const DOWNLOADS_PREFIX = "/downloads";
 const VIDEO_TITLE = "Random video";
 const files = fs.readdirSync(join(__dirname, "..", "backgroundvideo"));
+const PARAGRAPHS_PER_SLIDE = 6;
 
 (async () => {
   try {
-    const screenshoter = new Screenshoter();
+    const screenshoter = new Screenshoter(PARAGRAPHS_PER_SLIDE);
     await screenshoter.init(
-      "https://www.reddit.com/r/selenium/comments/suuooq/how_to_handle_interact_with_shadow_root_elements/"
+      "https://www.reddit.com/r/nosleep/comments/133t6o0/should_we_cancel_the_book_burning_disturbing/"
     );
 
     await screenshoter.takeScreenshotOfBody();
-    await screenshoter.takeScreenshotOfTitleWithHeader();
+    const { mergedTitleHeaderPath } = await screenshoter.takeScreenshotOfTitleWithHeader();
     await screenshoter.close();
 
+    return;
     await editVideo(files[0], [
       join(__dirname, "..", "screenshots", "title.png"),
       join(__dirname, "..", "screenshots", "mergedImages.png"),
     ]);
-    console.log(2);
 
     //await t.removeScreenshots();
   } catch (e) {
     console.log(e);
   }
   return;
-  const credentials = Buffer.from(
-    `${process.env.CLIENT_ID}:${process.env.CLIENT_SECRET}`
-  ).toString("base64");
+  const credentials = Buffer.from(`${process.env.CLIENT_ID}:${process.env.CLIENT_SECRET}`).toString("base64");
 
   const data = qs.stringify({
     grant_type: "refresh_token",
@@ -76,9 +75,7 @@ const files = fs.readdirSync(join(__dirname, "..", "backgroundvideo"));
         process.exit();
       }
     } else {
-      console.log(
-        "Something went wrong... access token does not exist in response"
-      );
+      console.log("Something went wrong... access token does not exist in response");
       process.exit();
     }
   } catch (e: unknown) {

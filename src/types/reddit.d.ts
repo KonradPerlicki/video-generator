@@ -10,6 +10,7 @@ declare module "reddit-types" {
     downs: number;
     title: string;
     selftext: string;
+    selftext_html: string;
     subreddit: string;
     [key: string]: unknown;
   }

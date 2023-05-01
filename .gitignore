@@ -3,3 +3,5 @@ client_secret.json
 .env
 /downloads/**/*
 /dist
+/screenshots/*
+/backgroundvideo/*

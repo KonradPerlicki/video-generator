@@ -1,4 +1,4 @@
-import { Page, Browser, launch, TimeoutError } from "puppeteer";
+import { Page, Browser, launch, TimeoutError, ElementHandle } from "puppeteer";
 import dotenv from "dotenv";
 dotenv.config();
 import joinImages from "join-images";
@@ -7,7 +7,7 @@ import fs from "node:fs/promises";
 
 const selectors = {
   title: "[slot='title']",
-  body: "[id*='post-rtjson-content']",
+  body: ".post-content [id*='post-rtjson-content'] p",
   header: "[slot='commentsPagePostDescriptor']",
   comment: "#id",
 } as const;
@@ -20,6 +20,8 @@ export default class Screenshoter {
   private page: Page;
   private readonly viewPortWidth = 1920;
   private readonly viewPortHeight = 1080;
+
+  constructor(private readonly paragraphsPerSlide: number) {}
 
   public async init(url: string) {
     this.browser = await launch({
@@ -39,9 +41,15 @@ export default class Screenshoter {
     await this.gotoPage(url);
   }
 
-  public static async removeScreenshots() {
+  public static async removeScreenshots(filenameLike?: string) {
     for (const file of await fs.readdir(screenShotFolderPath)) {
-      await fs.unlink(join(screenShotFolderPath, file));
+      if (filenameLike) {
+        if (file.includes(filenameLike)) {
+          await fs.unlink(join(screenShotFolderPath, file));
+        }
+      } else {
+        await fs.unlink(join(screenShotFolderPath, file));
+      }
     }
   }
 
@@ -83,33 +91,49 @@ export default class Screenshoter {
     this.page = page;
   }
 
-  public async takeScreenshotOfElement(
-    elementName: RedditElements,
-    savePath: string
-  ) {
+  public async takeScreenshotOfElement(elementName: RedditElements, savePath?: string) {
     const page = this.page;
     const selector = selectors[elementName];
+    let element: ElementHandle<Element> | ElementHandle<Element>[] | null;
+
+    await page.waitForSelector(selector);
 
     if (elementName === "body") {
       //handle read-more button to retrieve whole body of post
       try {
-        const button = await page.evaluateHandle(
-          `document.querySelector("[id*='read-more-button']")`
-        );
+        const button = await page.evaluateHandle(`document.querySelector("[id*='read-more-button']")`);
         if (button) await button.asElement().click();
+
+        //get all paragraphs from body
+        element = await page.$$(selector);
       } catch (e) {}
+    } else {
+      element = await page.$(selector);
     }
 
-    await page.waitForSelector(selector);
-    const element = await page.$(selector);
     try {
-      if (!element) {
+      if (!element!) {
         console.log("Element not found: " + elementName);
       } else {
-        await element.screenshot({
-          path: savePath,
-          captureBeyondViewport: true,
-        });
+        if (Array.isArray(element)) {
+          let tmpPaths: string[] = [];
+
+          for (let i = 0; i < element.length; i++) {
+            const path = join(screenShotFolderPath, `paragraph${i + 1}.png`);
+            await element[i].screenshot({ path });
+
+            tmpPaths.push(path);
+            if (i > 0 && (i % this.paragraphsPerSlide === 0 || i === element.length - 1)) {
+              await this.mergeParagraphPhotos(tmpPaths, i);
+              tmpPaths = [];
+            }
+          }
+        } else {
+          await element.screenshot({
+            path: savePath,
+            captureBeyondViewport: true,
+          });
+        }
 
         console.log(`saved ${elementName} ${selector}`);
       }
@@ -125,9 +149,7 @@ export default class Screenshoter {
   }
 
   public async takeScreenshotOfBody() {
-    const savePath = `${screenShotFolderPath}/body.png`;
-    await this.takeScreenshotOfElement("body", savePath);
-    return { savePath };
+    await this.takeScreenshotOfElement("body");
   }
 
   public async takeScreenshotOfTitleWithHeader() {
@@ -137,13 +159,19 @@ export default class Screenshoter {
     const titlePath = `${screenShotFolderPath}/title.png`;
     await this.takeScreenshotOfElement("title", titlePath);
 
-    const mergedImagesPath = `${screenShotFolderPath}/mergedImages.png`;
-    await mergeImages([headerPath, titlePath], mergedImagesPath);
-    return { headerPath, titlePath };
+    const mergedTitleHeaderPath = `${screenShotFolderPath}/mergedHeaderTitle.png`;
+    await mergeImages([headerPath, titlePath], mergedTitleHeaderPath, true);
+    return { mergedTitleHeaderPath };
+  }
+
+  public async mergeParagraphPhotos(photosPath: string[], index: number) {
+    const mergedPath = join(screenShotFolderPath, `body${index}.png`);
+    await mergeImages(photosPath, mergedPath, true);
+    return mergedPath;
   }
 }
 
-async function mergeImages(images: string[], savePath: string) {
+async function mergeImages(images: string[], savePath: string, deleteMergedImages?: boolean) {
   const mergedImages = await joinImages(images, {
     direction: "vertical",
     //colors from reddit's dark theme
@@ -155,4 +183,10 @@ async function mergeImages(images: string[], savePath: string) {
   });
 
   await mergedImages.toFile(savePath);
+
+  if (deleteMergedImages) {
+    for (const image of images) {
+      await fs.unlink(image);
+    }
+  }
 }

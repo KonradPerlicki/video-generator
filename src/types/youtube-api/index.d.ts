@@ -6,8 +6,8 @@
 declare module "youtube-api" {
   import { GoogleApis } from "googleapis";
   import { OAuth2Client } from "google-auth-library/build/src/index";
-  import {youtube_v3} from "googleapis/build/src/apis/youtube"
-  
+  import { youtube_v3 } from "googleapis/build/src/apis/youtube";
+
   export interface AuthOptions {
     type: "oauth" | "key";
     client_id: string;
@@ -21,7 +21,7 @@ declare module "youtube-api" {
      * For exact typings check /node_modules/googleapis/build/src/googleapis.d.ts
      */
     google: GoogleApis;
-}
+  }
 
   export interface EmptyAuthConfig {
     auth: undefined;
@@ -47,9 +47,9 @@ declare module "youtube-api" {
      * The hl parameter specifies the language that will be used for text values in the API response. The default value is en-US.
      */
     hl?: string;
-}
+  }
 
-interface Schema$GuideCategories {
+  interface Schema$GuideCategories {
     /**
      * Identifies the API resource's type. The value will be youtube#guideCategory.
      */
@@ -66,19 +66,19 @@ interface Schema$GuideCategories {
     id?: string | null;
 
     snippet?: {
-        /**
-         * The ID that YouTube uses to uniquely identify the channel publishing the guide category.
-         */
-        channelId?: string | null;
+      /**
+       * The ID that YouTube uses to uniquely identify the channel publishing the guide category.
+       */
+      channelId?: string | null;
 
-        /**
-         * The category's title.
-         */
-        title?: string | null;
+      /**
+       * The category's title.
+       */
+      title?: string | null;
     };
-}
+  }
 
-interface Schema$GuideCategoriesResponse {
+  interface Schema$GuideCategoriesResponse {
     /**
      * Identifies the API resource's type. The value will be youtube#guideCategoryListResponse.
      */
@@ -108,34 +108,34 @@ interface Schema$GuideCategoriesResponse {
      * A list of categories that can be associated with YouTube channels. In this map, the category ID is the map key, and its value is the corresponding guideCategory resource.
      */
     items?: Schema$GuideCategories[];
-}
+  }
 
-declare class Resource$GuideCategories {
+  declare class Resource$GuideCategories {
     context: APIRequestContext;
     constructor(context: APIRequestContext);
     list(params: Params$Resource$GuideCategories$List, options: StreamMethodOptions): GaxiosPromise<Readable>;
     list(
-        params?: Params$Resource$GuideCategories$List,
-        options?: MethodOptions,
+      params?: Params$Resource$GuideCategories$List,
+      options?: MethodOptions
     ): GaxiosPromise<Schema$GuideCategoriesResponse>;
     list(
-        params: Params$Resource$GuideCategories$List,
-        options: StreamMethodOptions | BodyResponseCallback<Readable>,
-        callback: BodyResponseCallback<Readable>,
+      params: Params$Resource$GuideCategories$List,
+      options: StreamMethodOptions | BodyResponseCallback<Readable>,
+      callback: BodyResponseCallback<Readable>
     ): void;
     list(
-        params: Params$Resource$GuideCategories$List,
-        options: MethodOptions | BodyResponseCallback<Schema$GuideCategoriesResponse>,
-        callback: BodyResponseCallback<Schema$GuideCategoriesResponse>,
+      params: Params$Resource$GuideCategories$List,
+      options: MethodOptions | BodyResponseCallback<Schema$GuideCategoriesResponse>,
+      callback: BodyResponseCallback<Schema$GuideCategoriesResponse>
     ): void;
     list(
-        params: Params$Resource$GuideCategories$List,
-        callback: BodyResponseCallback<Schema$GuideCategoriesResponse>,
+      params: Params$Resource$GuideCategories$List,
+      callback: BodyResponseCallback<Schema$GuideCategoriesResponse>
     ): void;
     list(callback: BodyResponseCallback<Schema$GuideCategoriesResponse>): void;
-}
+  }
 
-interface YoutubeApi {
+  interface YoutubeApi {
     new (config?: unknown): {};
 
     activities: youtube_v3.Resource$Activities;
@@ -184,7 +184,7 @@ interface YoutubeApi {
     getConfig(): Readonly<{} | AuthOptions | EmptyAuthConfig>;
 
     context: GoogleApisContext;
-}
+  }
 
   const youtube: YoutubeApi;
   export default youtube;

@@ -33,7 +33,7 @@ export async function editVideo(videoFile: string, screenshots: string[]) {
 
   for (const [index, screenshot] of screenshots.entries()) {
     video.addInput(screenshot);
-    let filter: FilterSpecification = {
+    const filter: FilterSpecification = {
       filter: "overlay",
       inputs: index === 0 ? "blurred" : `overlay${index - 1}`,
       options: {
