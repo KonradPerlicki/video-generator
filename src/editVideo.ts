@@ -27,6 +27,7 @@ export async function editVideo(videoFile: string, screenshots: string[]) {
       inputs: "cropped",
     },
   ];
+
   const video = ffmpeg(join(__dirname, "..", "backgroundvideo", videoFile))
     .setStartTime("00:00:01")
     .setDuration("12");
@@ -41,6 +42,7 @@ export async function editVideo(videoFile: string, screenshots: string[]) {
       inputs: index === 0 ? "blurred" : `overlay${index - 1}`,
       options: {
         y: "(H-h)/2",
+        x: "(W-w)/2",
         enable: `between(t,${startOverlay},${stopOverlay})`, //TODO array needs to contain displaying image time
       },
       outputs: `overlay${index}`,

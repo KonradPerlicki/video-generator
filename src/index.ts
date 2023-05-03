@@ -4,11 +4,9 @@ dotenv.config();
 import youtube from "youtube-api";
 import CREDENTIALS from "../client_secret.json";
 import { join } from "path";
-import qs from "qs";
-import axios from "axios";
-import { Listing } from "reddit-types";
 import Screenshoter from "./Screenshoter";
 import { editVideo } from "./editVideo";
+import Reddit from "./Reddit";
 
 const DOWNLOADS_PREFIX = "/downloads";
 const VIDEO_TITLE = "Random video";
@@ -18,10 +16,15 @@ const backgroundVideo = files[0]; //TODO add more backgrounds, rotate them
 
 (async () => {
   try {
-    const overlayImages: string[] = [];
+    const reddit = new Reddit(PARAGRAPHS_PER_SLIDE);
+    const postListing = await reddit.getListing();
+    const post = postListing.children[0];
+    console.log(reddit.getDividedParagraphsFromPost(post.data));
+
     const screenshoter = new Screenshoter(PARAGRAPHS_PER_SLIDE);
+    const overlayImages: string[] = [];
     await screenshoter.init(
-      "https://www.reddit.com/r/nosleep/comments/133t6o0/should_we_cancel_the_book_burning_disturbing/"
+      "https://www.reddit.com/r/nosleep/comments/136h7ay/i_have_the_ability_to_understand_animals_today/"
     );
 
     const mergedTitleHeaderPath = await screenshoter.takeScreenshotOfTitleWithHeader();
@@ -37,51 +40,6 @@ const backgroundVideo = files[0]; //TODO add more backgrounds, rotate them
     console.log(e);
   }
   return;
-  const credentials = Buffer.from(`${process.env.CLIENT_ID}:${process.env.CLIENT_SECRET}`).toString("base64");
-
-  const data = qs.stringify({
-    grant_type: "refresh_token",
-    username: process.env.REDDIT_USERNAME,
-    refresh_token: process.env.REFRESH_TOKEN,
-  });
-
-  try {
-    const accessTokenResponse = await axios({
-      method: "post",
-      url: "https://www.reddit.com/api/v1/access_token",
-      headers: {
-        Authorization: "Basic " + credentials,
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      data,
-    });
-
-    if (accessTokenResponse.data.access_token) {
-      const accessToken = accessTokenResponse.data.access_token;
-
-      const postListing = await axios<Listing>({
-        method: "get",
-        url: "https://oauth.reddit.com/r/nosleep/top",
-        headers: {
-          Authorization: "Bearer " + accessToken,
-        },
-      });
-      if (postListing.data) {
-        const data = postListing.data.data;
-        const posts = data.children;
-        console.log(postListing.data);
-      } else {
-        console.log("An error occured while getting list of posts...");
-        process.exit();
-      }
-    } else {
-      console.log("Something went wrong... access token does not exist in response");
-      process.exit();
-    }
-  } catch (e: unknown) {
-    console.log(e);
-    process.exit();
-  }
 
   return;
 })();
