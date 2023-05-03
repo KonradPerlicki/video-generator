@@ -4,6 +4,8 @@ declare module "reddit-types" {
     num_comments: number;
     id: string;
     subreddit_id: string;
+    subreddit_name_prefixed: string;
+    subreddit: string;
     over_18: boolean;
     ups: number;
     upvote_ratio: number;
@@ -11,13 +13,17 @@ declare module "reddit-types" {
     title: string;
     selftext: string;
     selftext_html: string;
-    subreddit: string;
+    author: string;
+    num_comments: number;
+    url: string;
     [key: string]: unknown;
   }
+
   export interface ListingChildren {
-    kind: string;
-    data: Post[];
+    kind: "t3";
+    data: Post;
   }
+
   export interface ListingData {
     after: null | string;
     dist: number;
