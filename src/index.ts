@@ -24,7 +24,7 @@ const backgroundVideo = files[0]; //TODO add more backgrounds, rotate them
       "https://www.reddit.com/r/nosleep/comments/133t6o0/should_we_cancel_the_book_burning_disturbing/"
     );
 
-    const { mergedTitleHeaderPath } = await screenshoter.takeScreenshotOfTitleWithHeader();
+    const mergedTitleHeaderPath = await screenshoter.takeScreenshotOfTitleWithHeader();
     overlayImages.push(mergedTitleHeaderPath);
 
     await screenshoter.takeScreenshotOfBody();
