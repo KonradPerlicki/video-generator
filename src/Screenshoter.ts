@@ -167,10 +167,15 @@ export default class Screenshoter {
       await element[i].screenshot({ path });
 
       tmpPaths.push(path);
-      if (i > 0 && (i % this.paragraphsPerSlide === 0 || i === element.length - 1)) {
+      if (tmpPaths.length === this.paragraphsPerSlide) {
         await this.mergeParagraphPhotos(tmpPaths, i);
         tmpPaths = [];
       }
+    }
+
+    //in case when total number of elements is not dividable by this.paragraphsPerSlide
+    if (tmpPaths.length > 0) {
+      await this.mergeParagraphPhotos(tmpPaths, element.length);
     }
 
     console.log("Finished");
@@ -222,7 +227,7 @@ export default class Screenshoter {
     });
 
     await mergedImages.toFile("tmp.png");
-    await sharp("tmp.png").resize(700).toFile(join(screenshotsFolder, filename));
+    await sharp("tmp.png").resize(680).toFile(join(screenshotsFolder, filename));
     await fs.unlink("tmp.png");
 
     if (deleteMergedImages) {
