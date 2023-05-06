@@ -7,6 +7,8 @@ import { join } from "path";
 import Screenshoter from "./Screenshoter";
 import { editVideo } from "./editVideo";
 import Reddit from "./Reddit";
+import getCompletedSpeechObjectsList from "./AWSPolly";
+import AWSS3 from "./AWSS3";
 
 const DOWNLOADS_PREFIX = "/downloads";
 const VIDEO_TITLE = "Random video";
@@ -16,11 +18,16 @@ const backgroundVideo = files[0]; //TODO add more backgrounds, rotate them
 
 (async () => {
   try {
-    const reddit = new Reddit(PARAGRAPHS_PER_SLIDE);
+    /*     const reddit = new Reddit(PARAGRAPHS_PER_SLIDE);
     const postListing = await reddit.getListing();
     const post = postListing.children[0];
     console.log(reddit.getDividedParagraphsFromPost(post.data));
+ */
 
+    const t = await getCompletedSpeechObjectsList(["test"]);
+    console.log("done", t);
+    //const t = await AWSS3(join(__dirname, "..", "mp3"));
+    return;
     const screenshoter = new Screenshoter(PARAGRAPHS_PER_SLIDE);
     const overlayImages: string[] = [];
     await screenshoter.init(
@@ -29,7 +36,7 @@ const backgroundVideo = files[0]; //TODO add more backgrounds, rotate them
 
     const mergedTitleHeaderPath = await screenshoter.takeScreenshotOfTitleWithHeader();
     overlayImages.push(mergedTitleHeaderPath);
-
+    return;
     await screenshoter.takeScreenshotOfBody();
     overlayImages.push(...screenshoter.getMergedBodyImagesPath());
 
