@@ -1,4 +1,12 @@
-import { Page, Browser, launch, TimeoutError, ElementHandle } from "puppeteer";
+import {
+  Page,
+  Browser,
+  launch,
+  TimeoutError,
+  ElementHandle,
+  ScreenshotClip,
+  ScreenshotOptions,
+} from "puppeteer";
 import dotenv from "dotenv";
 dotenv.config();
 import joinImages from "join-images";
@@ -107,7 +115,7 @@ export default class Screenshoter {
     return this.mergedBodyImagesPath;
   }
 
-  public async takeScreenshotOfElement(elementName: RedditElements, filename: string) {
+  public async takeScreenshotOfElement(elementName: RedditElements, filename: string, addMargin?: boolean) {
     const page = this.page;
     const selector = selectors[elementName];
     let element: ElementHandle<Element> | ElementHandle<Element>[] | null;
@@ -144,10 +152,26 @@ export default class Screenshoter {
         if (Array.isArray(element)) {
           await this.takeScreenshotsOfBodyParagraphs(element, filename);
         } else {
-          await element.screenshot({
+          const screenshotParams: ScreenshotOptions = {
             path: join(screenshotsFolder, filename),
-            captureBeyondViewport: true,
-          });
+          };
+
+          //TODO zamiast addMargin boolean zrobic obiekt i typ do niego gdzie mozna wybierac czy tylko gora dol czy lewo prawo margines itp
+          if (addMargin) {
+            const boundingBox = await element.boundingBox();
+            if (boundingBox) {
+              screenshotParams.clip = {
+                x: boundingBox.x,
+                y: boundingBox.y,
+                width: boundingBox.width + 10,
+                height: boundingBox.height + 10,
+              };
+            } else {
+              console.log("Bounding Box not found");
+            }
+          }
+
+          await element.screenshot(screenshotParams);
         }
 
         console.log(`Successfully saved ${elementName}`);
@@ -197,7 +221,7 @@ export default class Screenshoter {
     await this.takeScreenshotOfElement("header", headerName);
 
     const titleName = `title.png`;
-    await this.takeScreenshotOfElement("title", titleName);
+    await this.takeScreenshotOfElement("title", titleName, true);
 
     const mergedTitleHeaderPath = `mergedHeaderTitle.png`;
 
