@@ -1,6 +1,7 @@
 import ffmpeg, { FilterSpecification } from "fluent-ffmpeg";
 import { join } from "path";
 import Screenshoter from "./Screenshoter";
+import mergeMp3Files from "./mergeMp3Files";
 
 export interface ScreenshotWithSpeechFile {
   screenshot: string;
@@ -40,8 +41,12 @@ export async function editVideo(videoFile: string, mergedData: ScreenshotWithSpe
     },
   ];
 
-  const video = ffmpeg(join(__dirname, "..", "backgroundvideo", videoFile)).setStartTime(21);
-  video.addInput(mergedData[0].speechFile);
+  const video = ffmpeg(join(__dirname, "..", "backgroundvideo", videoFile)).setStartTime(1);
+
+  const mergedSpeechFilesPath = "audio.mp3";
+  await mergeMp3Files([mergedData[0].speechFile, mergedData[1].speechFile], mergedSpeechFilesPath);
+
+  video.addInput(mergedSpeechFilesPath);
 
   let totalDuration = 0;
   for (const [index, data] of mergedData.entries()) {
@@ -67,18 +72,17 @@ export async function editVideo(videoFile: string, mergedData: ScreenshotWithSpe
 
     complexFilter.push(filter);
   }
-  console.log(complexFilter);
 
   console.log("Starting video editing...");
 
   video
-    .setDuration(3)
+    .setDuration(20)
     .complexFilter(complexFilter)
-    .output("video_out.mp4")
+    .output("video.mp4")
     .on("end", async function (err) {
       if (!err) {
         console.log("Video conversion done");
-        //await Screenshoter.removeScreenshots();
+        //await Screenshoter.removeScreenshots(); and remove speech files
         //TODO upload video logic here promise all delete screenshots and upload
       }
     })
