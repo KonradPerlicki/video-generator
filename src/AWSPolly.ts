@@ -1,5 +1,6 @@
 import { PollyClient, StartSpeechSynthesisTaskCommand } from "@aws-sdk/client-polly";
 import { getObjectsListing } from "./AWSS3";
+import { join } from "path";
 
 export default async function getCompletedSpeechObjectsList(texts: string[]): Promise<null | string[]> {
   const client = new PollyClient({
@@ -35,7 +36,7 @@ export default async function getCompletedSpeechObjectsList(texts: string[]): Pr
     ) {
       throw new Error("Error sending speech request command");
     } else {
-      filesNames.push(response.SynthesisTask.OutputUri.split("/").pop()!);
+      filesNames.push(join(__dirname, "..", "mp3", response.SynthesisTask.OutputUri.split("/").pop()!));
     }
   }
 

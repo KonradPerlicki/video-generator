@@ -5,10 +5,11 @@ import youtube from "youtube-api";
 import CREDENTIALS from "../client_secret.json";
 import { join } from "path";
 import Screenshoter from "./Screenshoter";
-import { editVideo } from "./editVideo";
+import { ScreenshotWithSpeechFile, editVideo } from "./editVideo";
 import Reddit from "./Reddit";
 import getCompletedSpeechObjectsList from "./AWSPolly";
 import { saveSpeechFiles } from "./AWSS3";
+import getMP3Duration from "get-mp3-duration";
 
 const DOWNLOADS_PREFIX = "/downloads";
 const VIDEO_TITLE = "Random video";
@@ -22,29 +23,42 @@ const backgroundVideo = files[0]; //TODO add more backgrounds, rotate them
     const postListing = await reddit.getListing();
     const post = postListing.children[0];
     const parapgraphsTextToSpeech = reddit.getDividedParagraphsFromPost(post.data);
-    parapgraphsTextToSpeech.unshift(`<speak>${post.data.title}</speak>`);
 
     //////////////////////////
-    const speechFilesList = await getCompletedSpeechObjectsList(parapgraphsTextToSpeech);
+    /*  const speechFilesList = await getCompletedSpeechObjectsList(parapgraphsTextToSpeech);
     if (!speechFilesList) {
       throw new Error(`No speech files`);
     }
 
-    await saveSpeechFiles(speechFilesList);
+    await saveSpeechFiles(speechFilesList); */
+    const speechFilesList = fs.readdirSync(join(__dirname, "..", "mp3"));
 
     //////////////////////////
     const screenshoter = new Screenshoter(PARAGRAPHS_PER_SLIDE);
-    const overlayImages: string[] = [];
+    const screenshots: string[] = [];
     await screenshoter.init(post.data.url);
 
     const mergedTitleHeaderPath = await screenshoter.takeScreenshotOfTitleWithHeader();
-    overlayImages.push(mergedTitleHeaderPath);
+    screenshots.push(mergedTitleHeaderPath);
     await screenshoter.takeScreenshotOfBody();
-    overlayImages.push(...screenshoter.getMergedBodyImagesPath());
+    screenshots.push(...screenshoter.getMergedBodyImagesPath());
 
     await screenshoter.close();
-    return;
-    await editVideo(backgroundVideo, overlayImages);
+
+    if (screenshots.length !== speechFilesList.length) {
+      throw new Error(
+        `Something went wrong for post: "${post.data.id}" with url: "${post.data.url}", reason: screenshots number didn't match speech files nubmer, found ${screenshots.length} screenshots and ${speechFilesList.length} speech files.`
+      );
+    }
+
+    const mergedData: ScreenshotWithSpeechFile[] = screenshots.map((screenshot, index) => ({
+      screenshot,
+      //TODO remove join
+      speechFile: join(__dirname, "..", "mp3", speechFilesList[index]),
+      duration: getMP3Duration(fs.readFileSync(join(__dirname, "..", "mp3", speechFilesList[index]))),
+    }));
+
+    await editVideo(backgroundVideo, mergedData);
   } catch (e) {
     console.log(e);
   }
