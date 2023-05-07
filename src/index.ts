@@ -23,14 +23,13 @@ const backgroundVideo = files[0]; //TODO add more backgrounds, rotate them
     const post = postListing.children[0];
     const parapgraphsTextToSpeech = reddit.getDividedParagraphsFromPost(post.data);
  */
-    const parapgraphsTextToSpeech = ["test mowy"];
+    const parapgraphsTextToSpeech = ["a"];
     const speechFilesList = await getCompletedSpeechObjectsList(parapgraphsTextToSpeech);
     if (!speechFilesList) {
       throw new Error(`No speech files`);
     }
 
     await saveSpeechFiles(speechFilesList, join(__dirname, "..", "mp3"));
-    await deleteObjects(parapgraphsTextToSpeech.map((text) => ({ Key: text })));
     console.log("finish");
     return;
     const screenshoter = new Screenshoter(PARAGRAPHS_PER_SLIDE);

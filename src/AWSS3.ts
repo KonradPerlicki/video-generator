@@ -1,15 +1,7 @@
-import {
-  S3Client,
-  GetObjectCommand,
-  DeleteObjectsCommand,
-  ListObjectsV2Command,
-  ObjectIdentifier,
-} from "@aws-sdk/client-s3";
-import dotenv from "dotenv";
+import { S3Client, GetObjectCommand, ListObjectsV2Command, DeleteObjectCommand } from "@aws-sdk/client-s3";
 import fs from "fs";
 import { join } from "path";
 import { Readable } from "stream";
-dotenv.config();
 
 const client = new S3Client({
   region: "eu-west-2",
@@ -34,25 +26,29 @@ export async function saveSpeechFiles(objectsKey: string[], savePath: string) {
       if (response.Body && response.Body instanceof Readable) {
         response.Body.pipe(fs.createWriteStream(join(savePath, key)))
           .on("error", (err) => reject(err))
-          .on("close", () => {
+          .on("close", async () => {
+            await deleteObject(key, response.VersionId);
             resolve(true);
           });
       }
     });
   }
 }
-//może pojedynczo jednak trzeba?
-export async function deleteObjects(objects: ObjectIdentifier[]) {
-  const command = new DeleteObjectsCommand({
-    Delete: {
-      Objects: objects,
-    },
+
+export async function deleteObject(key: string, versionId?: string) {
+  const command = new DeleteObjectCommand({
+    Key: key,
+    VersionId: versionId,
     Bucket: process.env.AWS_BUCKETNAME as string,
   });
 
   const res = await client.send(command);
-  console.log(res);
-  console.log(`Deleted ${objects.length} objects`);
+
+  if (res.$metadata.httpStatusCode === 204) {
+    console.log(`Deleted ${key} object`);
+  } else {
+    console.log(`Could not delete object ${key}`);
+  }
 }
 
 export async function getObjectsListing() {
