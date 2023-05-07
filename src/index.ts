@@ -8,7 +8,7 @@ import Screenshoter from "./Screenshoter";
 import { editVideo } from "./editVideo";
 import Reddit from "./Reddit";
 import getCompletedSpeechObjectsList from "./AWSPolly";
-import { deleteObjects, saveSpeechFiles } from "./AWSS3";
+import { saveSpeechFiles } from "./AWSS3";
 
 const DOWNLOADS_PREFIX = "/downloads";
 const VIDEO_TITLE = "Random video";
@@ -18,34 +18,32 @@ const backgroundVideo = files[0]; //TODO add more backgrounds, rotate them
 
 (async () => {
   try {
-    /*     const reddit = new Reddit(PARAGRAPHS_PER_SLIDE);
+    const reddit = new Reddit(PARAGRAPHS_PER_SLIDE);
     const postListing = await reddit.getListing();
     const post = postListing.children[0];
     const parapgraphsTextToSpeech = reddit.getDividedParagraphsFromPost(post.data);
- */
-    const parapgraphsTextToSpeech = ["a"];
+    parapgraphsTextToSpeech.unshift(`<speak>${post.data.title}</speak>`);
+
+    //////////////////////////
     const speechFilesList = await getCompletedSpeechObjectsList(parapgraphsTextToSpeech);
     if (!speechFilesList) {
       throw new Error(`No speech files`);
     }
 
-    await saveSpeechFiles(speechFilesList, join(__dirname, "..", "mp3"));
-    console.log("finish");
-    return;
+    await saveSpeechFiles(speechFilesList);
+
+    //////////////////////////
     const screenshoter = new Screenshoter(PARAGRAPHS_PER_SLIDE);
     const overlayImages: string[] = [];
-    await screenshoter.init(
-      "https://www.reddit.com/r/nosleep/comments/136h7ay/i_have_the_ability_to_understand_animals_today/"
-    );
+    await screenshoter.init(post.data.url);
 
     const mergedTitleHeaderPath = await screenshoter.takeScreenshotOfTitleWithHeader();
     overlayImages.push(mergedTitleHeaderPath);
-    return;
     await screenshoter.takeScreenshotOfBody();
     overlayImages.push(...screenshoter.getMergedBodyImagesPath());
 
     await screenshoter.close();
-
+    return;
     await editVideo(backgroundVideo, overlayImages);
   } catch (e) {
     console.log(e);

@@ -69,20 +69,22 @@ export default class Reddit {
   public getDividedParagraphsFromPost(post: Post) {
     const paragraphsArray = post.selftext.split("\n\n");
     const result: string[] = [];
+    const ssmlOpeningTag = `<speak><prosody rate="120%">`;
+    const ssmlClosingTag = `</prosody></speak>`;
 
     let tmp: string[] = [];
     for (const paragraph of paragraphsArray) {
       tmp.push(paragraph);
 
       if (tmp.length === this.paragraphsPerSlide) {
-        result.push(tmp.join(" "));
+        result.push(`${ssmlOpeningTag}${tmp.join(" ")}${ssmlClosingTag}`);
         tmp = [];
       }
     }
 
     //in case when total number of paragraphs is not dividable by this.paragraphsPerSlide
     if (tmp.length > 0) {
-      result.push(tmp.join(" "));
+      result.push(`${ssmlOpeningTag}${tmp.join(" ")}${ssmlClosingTag}`);
     }
 
     return result;

@@ -188,12 +188,16 @@ export default class Screenshoter {
 
     for (let i = 0; i < element.length; i++) {
       const path = join(screenshotsFolder, `${filename}${i + 1}.png`);
-      await element[i].screenshot({ path });
+      try {
+        await element[i].screenshot({ path });
 
-      tmpPaths.push(path);
-      if (tmpPaths.length === this.paragraphsPerSlide) {
-        await this.mergeParagraphPhotos(tmpPaths, i);
-        tmpPaths = [];
+        tmpPaths.push(path);
+        if (tmpPaths.length === this.paragraphsPerSlide) {
+          await this.mergeParagraphPhotos(tmpPaths, i);
+          tmpPaths = [];
+        }
+      } catch (e) {
+        //skip errors while taking screenshot, might be empty paragraph just ignore it
       }
     }
 

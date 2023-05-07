@@ -11,8 +11,8 @@ const client = new S3Client({
   },
 });
 
-export async function saveSpeechFiles(objectsKey: string[], savePath: string) {
-  console.log("objects to fetch:", objectsKey);
+export async function saveSpeechFiles(objectsKey: string[]) {
+  console.log("Objects to fetch:", objectsKey);
 
   for (const key of objectsKey) {
     const command = new GetObjectCommand({
@@ -24,9 +24,13 @@ export async function saveSpeechFiles(objectsKey: string[], savePath: string) {
 
     await new Promise((resolve, reject) => {
       if (response.Body && response.Body instanceof Readable) {
-        response.Body.pipe(fs.createWriteStream(join(savePath, key)))
-          .on("error", (err) => reject(err))
+        response.Body.pipe(fs.createWriteStream(join(__dirname, "..", "mp3", key)))
+          .on("error", (err) => {
+            console.log(`Failed to download file ${key}`);
+            reject(err);
+          })
           .on("close", async () => {
+            console.log(`Successfully downloaded file ${key}`);
             await deleteObject(key, response.VersionId);
             resolve(true);
           });
@@ -45,7 +49,7 @@ export async function deleteObject(key: string, versionId?: string) {
   const res = await client.send(command);
 
   if (res.$metadata.httpStatusCode === 204) {
-    console.log(`Deleted ${key} object`);
+    console.log(`Deleted ${key} object from S3 bucket`);
   } else {
     console.log(`Could not delete object ${key}`);
   }
