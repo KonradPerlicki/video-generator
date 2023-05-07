@@ -57,6 +57,8 @@ export async function editVideo(videoFile: string, screenshots: string[]) {
     complexFilter.push(filter);
   }
 
+  console.log("Starting video editing...");
+
   video
     .complexFilter(complexFilter)
     .output("video_out.mp4")

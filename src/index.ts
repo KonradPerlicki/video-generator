@@ -8,7 +8,7 @@ import Screenshoter from "./Screenshoter";
 import { editVideo } from "./editVideo";
 import Reddit from "./Reddit";
 import getCompletedSpeechObjectsList from "./AWSPolly";
-import AWSS3 from "./AWSS3";
+import { deleteObjects, saveSpeechFiles } from "./AWSS3";
 
 const DOWNLOADS_PREFIX = "/downloads";
 const VIDEO_TITLE = "Random video";
@@ -21,12 +21,17 @@ const backgroundVideo = files[0]; //TODO add more backgrounds, rotate them
     /*     const reddit = new Reddit(PARAGRAPHS_PER_SLIDE);
     const postListing = await reddit.getListing();
     const post = postListing.children[0];
-    console.log(reddit.getDividedParagraphsFromPost(post.data));
+    const parapgraphsTextToSpeech = reddit.getDividedParagraphsFromPost(post.data);
  */
+    const parapgraphsTextToSpeech = ["test mowy"];
+    const speechFilesList = await getCompletedSpeechObjectsList(parapgraphsTextToSpeech);
+    if (!speechFilesList) {
+      throw new Error(`No speech files`);
+    }
 
-    const t = await getCompletedSpeechObjectsList(["test"]);
-    console.log("done", t);
-    //const t = await AWSS3(join(__dirname, "..", "mp3"));
+    await saveSpeechFiles(speechFilesList, join(__dirname, "..", "mp3"));
+    await deleteObjects(parapgraphsTextToSpeech.map((text) => ({ Key: text })));
+    console.log("finish");
     return;
     const screenshoter = new Screenshoter(PARAGRAPHS_PER_SLIDE);
     const overlayImages: string[] = [];
@@ -46,8 +51,6 @@ const backgroundVideo = files[0]; //TODO add more backgrounds, rotate them
   } catch (e) {
     console.log(e);
   }
-  return;
-
   return;
 })();
 

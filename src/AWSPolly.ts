@@ -4,6 +4,7 @@ import {
   ListSpeechSynthesisTasksCommand,
 } from "@aws-sdk/client-polly";
 import dotenv from "dotenv";
+import { getObjectsListing } from "./AWSS3";
 dotenv.config();
 
 export default async function getCompletedSpeechObjectsList(texts: string[]): Promise<null | string[]> {
@@ -16,6 +17,8 @@ export default async function getCompletedSpeechObjectsList(texts: string[]): Pr
   });
 
   const filesNames: string[] = [];
+
+  console.log("Creating speech commands...");
 
   for (const text of texts) {
     const command = new StartSpeechSynthesisTaskCommand({
@@ -42,11 +45,14 @@ export default async function getCompletedSpeechObjectsList(texts: string[]): Pr
     }
   }
 
+  console.log("DONE");
+
   //waiting for speech files to show up in s3 bucket
   return new Promise((resolve) => {
     let maxRetries = 10;
 
     const interval = setInterval(async () => {
+      console.log(`Waiting for speech files... left retries: ${maxRetries}`);
       maxRetries--;
 
       if (maxRetries === 0) {
@@ -54,13 +60,11 @@ export default async function getCompletedSpeechObjectsList(texts: string[]): Pr
         return resolve(null);
       }
 
-      const listing = new ListSpeechSynthesisTasksCommand({
-        Status: "completed",
-      });
-      const response = await client.send(listing);
+      const listing = await getObjectsListing();
 
-      if (response.SynthesisTasks && response.SynthesisTasks.length === filesNames.length) {
+      if (listing && listing.length >= filesNames.length) {
         clearInterval(interval);
+        console.log(`Success, ${filesNames.length} files found`);
         return resolve(filesNames);
       }
     }, 7000);
