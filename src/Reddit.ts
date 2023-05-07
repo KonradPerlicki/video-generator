@@ -50,6 +50,7 @@ export default class Reddit {
         },
         params: {
           limit: this.limit,
+          raw_json: 1,
         },
       });
 
@@ -67,13 +68,18 @@ export default class Reddit {
   }
 
   public getDividedParagraphsFromPost(post: Post) {
-    const paragraphsArray = post.selftext.split("\n\n");
+    const strippedHtmlTags = post.selftext_html.replace(/<\/?[^>]+(>|$)/g, "");
+    const paragraphsArray = strippedHtmlTags.split("\n\n");
     const result: string[] = [];
     const ssmlOpeningTag = `<speak><prosody rate="120%">`;
     const ssmlClosingTag = `</prosody></speak>`;
 
+    result.push(`${ssmlOpeningTag}${post.title}${ssmlClosingTag}`);
+
     let tmp: string[] = [];
     for (const paragraph of paragraphsArray) {
+      if (paragraph.trim().length === 0 || paragraph === "&#x200B;") continue;
+
       tmp.push(paragraph);
 
       if (tmp.length === this.paragraphsPerSlide) {
