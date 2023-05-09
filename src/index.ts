@@ -10,6 +10,10 @@ import Reddit from "./Reddit";
 import getCompletedSpeechObjectsList from "./AWSPolly";
 import { saveSpeechFiles } from "./AWSS3";
 import getMP3Duration from "get-mp3-duration";
+import { ListingChildren, Post } from "reddit-types";
+import { launch } from "puppeteer";
+
+const now = performance.now();
 
 const DOWNLOADS_PREFIX = "/downloads";
 const VIDEO_TITLE = "Random video";
@@ -24,26 +28,14 @@ const backgroundVideo = files[0]; //TODO add more backgrounds, rotate them
     const post = postListing.children[0];
     const parapgraphsTextToSpeech = reddit.getDividedParagraphsFromPost(post.data);
 
-    //////////////////////////
-    /*  const speechFilesList = await getCompletedSpeechObjectsList(parapgraphsTextToSpeech);
+    const [speechFilesList, screenshots] = await Promise.all([
+      getCompletedSpeechObjectsList(parapgraphsTextToSpeech),
+      getPostAllScreenshots(post),
+    ]);
+
     if (!speechFilesList) {
       throw new Error(`No speech files`);
     }
-
-    await saveSpeechFiles(speechFilesList); */
-    const speechFilesList = fs.readdirSync(join(__dirname, "..", "mp3"));
-
-    //////////////////////////
-    const screenshoter = new Screenshoter(PARAGRAPHS_PER_SLIDE);
-    const screenshots: string[] = [];
-    await screenshoter.init(post.data.url);
-
-    const mergedTitleHeaderPath = await screenshoter.takeScreenshotOfTitleWithHeader();
-    screenshots.push(mergedTitleHeaderPath);
-    await screenshoter.takeScreenshotOfBody();
-    screenshots.push(...screenshoter.getMergedBodyImagesPath());
-
-    await screenshoter.close();
 
     if (screenshots.length !== speechFilesList.length) {
       throw new Error(
@@ -53,17 +45,37 @@ const backgroundVideo = files[0]; //TODO add more backgrounds, rotate them
 
     const mergedData: ScreenshotWithSpeechFile[] = screenshots.map((screenshot, index) => ({
       screenshot,
-      //TODO remove join
       speechFile: join(__dirname, "..", "mp3", speechFilesList[index]),
       duration: getMP3Duration(fs.readFileSync(join(__dirname, "..", "mp3", speechFilesList[index]))),
     }));
 
-    await editVideo(backgroundVideo, mergedData);
+    const videoName = await editVideo(backgroundVideo, mergedData);
+
+    //runs in background
+    Screenshoter.removeScreenshots();
+
+    //TODO upload video logic here promise all delete screenshots and upload
+    console.log(`Done in ${performance.now() - now} ms`);
   } catch (e) {
     console.log(e);
   }
   return;
 })();
+
+async function getPostAllScreenshots(post: ListingChildren) {
+  const screenshots: string[] = [];
+  const screenshoter = new Screenshoter(PARAGRAPHS_PER_SLIDE);
+
+  await screenshoter.init(post.data.url);
+
+  const mergedTitleHeaderPath = await screenshoter.takeScreenshotOfTitleWithHeader();
+  screenshots.push(mergedTitleHeaderPath);
+  await screenshoter.takeScreenshotOfBody();
+  screenshots.push(...screenshoter.getMergedBodyImagesPath());
+
+  await screenshoter.close();
+  return screenshots;
+}
 
 /* async function saveTiktokVideoFile(video) {
   const folderPath = join(__dirname, "..", DOWNLOADS_PREFIX, video.id);

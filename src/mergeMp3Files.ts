@@ -1,12 +1,17 @@
 import audioconcat from "audioconcat";
+import { removeSpeechFiles } from "./AWSS3";
 
-export default async function mergeMp3Files(files: string[], output: string) {
+export default async function mergeMp3Files(files: string[], output: string): Promise<string> {
   return new Promise((resolve, reject) => {
     audioconcat(files)
       .concat(output)
       .on("end", function (err) {
         if (!err) {
           console.log(`${files.length} files merged successfully and saved to ${output}`);
+
+          //runs in background
+          removeSpeechFiles();
+
           resolve(output);
         } else reject(err);
       })

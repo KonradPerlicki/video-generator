@@ -9,12 +9,12 @@ export interface ScreenshotWithSpeechFile {
   duration: number;
 }
 
-export async function editVideo(videoFile: string, mergedData: ScreenshotWithSpeechFile[]) {
+export async function editVideo(videoFile: string, mergedData: ScreenshotWithSpeechFile[]): Promise<string> {
   const complexFilter: Array<FilterSpecification> = [
     {
       filter: "amix",
       options: {
-        inputs: "2",
+        inputs: "1", // 1 - background video MUST BE without audio
       },
     },
     {
@@ -31,20 +31,15 @@ export async function editVideo(videoFile: string, mergedData: ScreenshotWithSpe
       outputs: "cropped",
       inputs: "scaled",
     },
-    {
-      filter: "boxblur",
-      options: {
-        luma_power: 10,
-      },
-      outputs: "blurred",
-      inputs: "cropped",
-    },
   ];
 
   const video = ffmpeg(join(__dirname, "..", "backgroundvideo", videoFile)).setStartTime(1);
 
   const mergedSpeechFilesPath = "audio.mp3";
-  await mergeMp3Files([mergedData[0].speechFile, mergedData[1].speechFile], mergedSpeechFilesPath);
+  await mergeMp3Files(
+    mergedData.map((data) => data.speechFile),
+    mergedSpeechFilesPath
+  );
 
   video.addInput(mergedSpeechFilesPath);
 
@@ -55,7 +50,7 @@ export async function editVideo(videoFile: string, mergedData: ScreenshotWithSpe
 
     const filter: FilterSpecification = {
       filter: "overlay",
-      inputs: index === 0 ? "blurred" : `overlay${index - 1}`,
+      inputs: index === 0 ? "cropped" : `overlay${index - 1}`,
       options: {
         y: "(H-h)/2",
         x: "(W-w)/2",
@@ -73,19 +68,23 @@ export async function editVideo(videoFile: string, mergedData: ScreenshotWithSpe
     complexFilter.push(filter);
   }
 
+  const outputFilePath = "video3.mp4";
+
+  video.setDuration(totalDuration).complexFilter(complexFilter).output(outputFilePath);
+
   console.log("Starting video editing...");
 
-  video
-    .setDuration(20)
-    .complexFilter(complexFilter)
-    .output("video.mp4")
-    .on("end", async function (err) {
-      if (!err) {
-        console.log("Video conversion done");
-        //await Screenshoter.removeScreenshots(); and remove speech files
-        //TODO upload video logic here promise all delete screenshots and upload
-      }
-    })
-    .on("errors", (err) => console.log("error: ", err))
-    .run();
+  return new Promise((resolve, reject) => {
+    video
+      .on("end", function (err) {
+        if (!err) {
+          console.log("Video conversion done");
+          resolve(outputFilePath);
+        }
+      })
+      .on("errors", (err) => {
+        reject(err);
+      })
+      .run();
+  });
 }

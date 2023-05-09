@@ -1,5 +1,5 @@
 import { PollyClient, StartSpeechSynthesisTaskCommand } from "@aws-sdk/client-polly";
-import { getObjectsListing } from "./AWSS3";
+import { getObjectsListing, saveSpeechFiles } from "./AWSS3";
 import { join } from "path";
 
 export default async function getCompletedSpeechObjectsList(texts: string[]): Promise<null | string[]> {
@@ -36,15 +36,15 @@ export default async function getCompletedSpeechObjectsList(texts: string[]): Pr
     ) {
       throw new Error("Error sending speech request command");
     } else {
-      filesNames.push(join(__dirname, "..", "mp3", response.SynthesisTask.OutputUri.split("/").pop()!));
+      filesNames.push(response.SynthesisTask.OutputUri.split("/").pop()!);
     }
   }
 
   console.log("DONE");
 
   //waiting for speech files to show up in s3 bucket
-  return new Promise((resolve) => {
-    let maxRetries = 10;
+  return new Promise((resolve, reject) => {
+    let maxRetries = 12;
 
     const interval = setInterval(async () => {
       console.log(`Waiting for speech files... left retries: ${maxRetries}`);
@@ -52,7 +52,7 @@ export default async function getCompletedSpeechObjectsList(texts: string[]): Pr
 
       if (maxRetries === 0) {
         clearInterval(interval);
-        return resolve(null);
+        return reject(null);
       }
 
       const listing = await getObjectsListing();
@@ -60,8 +60,11 @@ export default async function getCompletedSpeechObjectsList(texts: string[]): Pr
       if (listing && listing.length >= texts.length) {
         clearInterval(interval);
         console.log(`Success, ${filesNames.length} files found`);
+
+        await saveSpeechFiles(filesNames);
+
         return resolve(filesNames);
       }
-    }, 7000);
+    }, 4000);
   });
 }

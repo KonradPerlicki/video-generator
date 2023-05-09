@@ -1,5 +1,6 @@
 import { S3Client, GetObjectCommand, ListObjectsV2Command, DeleteObjectCommand } from "@aws-sdk/client-s3";
-import fs from "fs";
+import { createWriteStream } from "node:fs";
+import fs from "node:fs/promises";
 import { join } from "path";
 import { Readable } from "stream";
 
@@ -24,7 +25,7 @@ export async function saveSpeechFiles(objectsKey: string[]) {
 
     await new Promise((resolve, reject) => {
       if (response.Body && response.Body instanceof Readable) {
-        response.Body.pipe(fs.createWriteStream(join(__dirname, "..", "mp3", key)))
+        response.Body.pipe(createWriteStream(join(__dirname, "..", "mp3", key)))
           .on("error", (err) => {
             console.log(`Failed to download file ${key}`);
             reject(err);
@@ -63,4 +64,14 @@ export async function getObjectsListing() {
 
   const response = await client.send(listing);
   return response.Contents;
+}
+
+export async function removeSpeechFiles() {
+  console.log("Removing all speech files...");
+
+  for (const file of await fs.readdir(join(__dirname, "..", "mp3"))) {
+    await fs.unlink(join(__dirname, "..", "mp3", file));
+  }
+
+  console.log("Speech files removed");
 }
