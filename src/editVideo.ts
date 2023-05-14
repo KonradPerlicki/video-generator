@@ -2,6 +2,9 @@ import ffmpeg, { FilterSpecification } from "fluent-ffmpeg";
 import { join } from "path";
 import mergeMp3Files from "./mergeMp3Files";
 import Screenshoter from "./Screenshoter";
+import fs from "fs";
+import kfs from "key-file-storage";
+const db = kfs(join(__dirname, "..", "db"));
 
 export interface ScreenshotWithSpeechFile {
   screenshot: string;
@@ -9,7 +12,14 @@ export interface ScreenshotWithSpeechFile {
   duration: number;
 }
 
-export async function editVideo(videoFile: string, mergedData: ScreenshotWithSpeechFile[]): Promise<string> {
+interface LastVideo {
+  file: string;
+  index: number;
+}
+
+export async function editVideo(mergedData: ScreenshotWithSpeechFile[]): Promise<string> {
+  const videoFile = getBackgroundVideo();
+
   const complexFilter: Array<FilterSpecification> = [
     {
       filter: "amix",
@@ -91,4 +101,23 @@ export async function editVideo(videoFile: string, mergedData: ScreenshotWithSpe
       })
       .run();
   });
+}
+
+function getBackgroundVideo() {
+  const backgrounds = fs.readdirSync(join(__dirname, "..", "backgroundvideo"));
+  const lastVideo: LastVideo = db.last_video;
+
+  if (lastVideo.index === backgrounds.length - 1) {
+    db.last_video = {
+      file: backgrounds[0],
+      index: 0,
+    };
+    return backgrounds[0];
+  } else {
+    db.last_video = {
+      file: backgrounds[lastVideo.index + 1],
+      index: lastVideo.index + 1,
+    };
+    return backgrounds[lastVideo.index + 1];
+  }
 }

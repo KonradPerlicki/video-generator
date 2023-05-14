@@ -18,9 +18,7 @@ const db = kfs(join(__dirname, "..", "db"));
 const now = performance.now();
 
 const VIDEO_TITLE = "Reddit story";
-const files = fs.readdirSync(join(__dirname, "..", "backgroundvideo"));
 const PARAGRAPHS_PER_SLIDE = 4; //TODO refactor to base on text length
-const backgroundVideo = files[0]; //TODO add more backgrounds, rotate them
 
 const oauth = youtube.authenticate({
   type: "oauth",
@@ -93,7 +91,7 @@ let accessToken: GetAccessTokenResponse;
       duration: getMP3Duration(fs.readFileSync(join(__dirname, "..", "mp3", speechFilesList[index]))),
     }));
 
-    const videoName = await editVideo(backgroundVideo, mergedData);
+    const videoName = await editVideo(mergedData);
 
     await uploadVideoFileToYoutube(videoName, post);
   } catch (e) {
