@@ -6,3 +6,6 @@ client_secret.json
 /screenshots/*
 /backgroundvideo/*
 /mp3/*
+*.mp3
+*.mp4
+/db/*

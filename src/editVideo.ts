@@ -68,7 +68,7 @@ export async function editVideo(videoFile: string, mergedData: ScreenshotWithSpe
     complexFilter.push(filter);
   }
 
-  const outputFilePath = "video3.mp4";
+  const outputFilePath = new Date().toISOString().slice(0, 10) + videoFile;
 
   video.setDuration(totalDuration).complexFilter(complexFilter).output(outputFilePath);
 

@@ -12,17 +12,64 @@ import { saveSpeechFiles } from "./AWSS3";
 import getMP3Duration from "get-mp3-duration";
 import { ListingChildren, Post } from "reddit-types";
 import { launch } from "puppeteer";
+import express from "express";
+import kfs from "key-file-storage";
+import { GetAccessTokenResponse } from "google-auth-library/build/src/auth/oauth2client";
+import { GaxiosError } from "gaxios";
+const db = kfs(join(__dirname, "..", "db"));
 
 const now = performance.now();
 
-const DOWNLOADS_PREFIX = "/downloads";
-const VIDEO_TITLE = "Random video";
+const VIDEO_TITLE = "Reddit story";
 const files = fs.readdirSync(join(__dirname, "..", "backgroundvideo"));
 const PARAGRAPHS_PER_SLIDE = 4; //TODO refactor to base on text length
 const backgroundVideo = files[0]; //TODO add more backgrounds, rotate them
 
+const oauth = youtube.authenticate({
+  type: "oauth",
+  client_id: CREDENTIALS.web.client_id,
+  client_secret: CREDENTIALS.web.client_secret,
+  redirect_url: CREDENTIALS.web.redirect_uris[0],
+});
+
+oauth.setCredentials({
+  refresh_token: db.refresh_token,
+});
+
+let accessToken: GetAccessTokenResponse;
+
 (async () => {
   try {
+    try {
+      //will crash first if refresh token is invalid
+      accessToken = await oauth.getAccessToken();
+      if (!accessToken.token) {
+        throw new Error("Didn't get access token");
+      }
+    } catch (e: unknown | object) {
+      if (e && typeof e === "object" && "code" in e && e.code === "400") {
+        const authUrl = oauth.generateAuthUrl({
+          access_type: "offline",
+          scope: ["https://www.googleapis.com/auth/youtube.upload"],
+        });
+
+        //need manual open url
+        console.log(authUrl);
+
+        const app = express();
+        app.get("/redirect", (req, res) => {
+          oauth.getToken(String(req.query.code), (err, tokens) => {
+            if (tokens) {
+              db.refresh_token = tokens.refresh_token;
+              console.log("Refresh token saved");
+              process.exit();
+            }
+          });
+        });
+        app.listen(process.env.PORT);
+      }
+    }
+
     const reddit = new Reddit(PARAGRAPHS_PER_SLIDE);
     const postListing = await reddit.getListing();
     const post = postListing.children[0];
@@ -54,12 +101,10 @@ const backgroundVideo = files[0]; //TODO add more backgrounds, rotate them
     //runs in background
     Screenshoter.removeScreenshots();
 
-    //TODO upload video logic here promise all delete screenshots and upload
-    console.log(`Done in ${performance.now() - now} ms`);
+    await uploadVideoFileToYoutube(videoName, post);
   } catch (e) {
     console.log(e);
   }
-  return;
 })();
 
 async function getPostAllScreenshots(post: ListingChildren) {
@@ -77,77 +122,33 @@ async function getPostAllScreenshots(post: ListingChildren) {
   return screenshots;
 }
 
-/* async function saveTiktokVideoFile(video) {
-  const folderPath = join(__dirname, "..", DOWNLOADS_PREFIX, video.id);
-  if (!fs.existsSync(folderPath)) {
-    fs.mkdirSync(folderPath);
-  }
-
-  const videoFile = fs.createWriteStream(
-    join(__dirname, "..", DOWNLOADS_PREFIX, video.id, video.id + ".mp4")
-  );
-
-  https.get(video.downloadURL, (response) => {
-    if (response.statusCode != 200) {
-      console.log(
-        "Oops, got a " +
-          response.statusCode +
-          " while trying to download video file for " +
-          video.id
-      );
-      return;
-    }
-
-    response.pipe(videoFile);
-
-    // after download completed close filestream
-    videoFile.on("finish", async () => {
-      videoFile.close();
-      console.log("Download video completed");
-
-      //await uploadVideoFileToYoutube(video, videoFile.path as string);
-    });
-
-    videoFile.on("error", () => {
-      fs.rmdirSync(DOWNLOADS_PREFIX + video.id);
-    });
-  });
-} */
-
-async function uploadVideoFileToYoutube(video: any, filePath: string) {
-  const oauth = youtube.authenticate({
-    type: "oauth",
-    client_id: CREDENTIALS.web.client_id,
-    client_secret: CREDENTIALS.web.client_secret,
-    redirect_url: CREDENTIALS.web.redirect_uris[0],
-  });
-
-  oauth.setCredentials({
-    refresh_token: process.env.REFRESH_TOKEN,
-  });
-
-  const accessToken = await oauth.getAccessToken();
-  if (!accessToken.token) {
-    throw new Error("Didn't get access token");
-  }
-
+async function uploadVideoFileToYoutube(filePath: string, post: ListingChildren) {
   oauth.setCredentials({
     access_token: accessToken.token,
   });
 
-  const folders = fs.readdirSync(join(__dirname, "..", DOWNLOADS_PREFIX));
+  const tags = ["#reddit", `#${post.data.subreddit}`, "#redditstory", "#top", "#trending"];
+  const date = new Date();
 
-  const isShort = video.duration <= 60;
-  const tags = video.description.match(/#\w+/g) ?? (isShort ? ["#Shorts"] : []);
+  console.log(`Uploading video to youtube`);
 
   youtube.videos.insert(
     {
       requestBody: {
         // Video information
         snippet: {
-          title: `${VIDEO_TITLE} #${folders.length}`,
-          // Append #Short tag to video description
-          description: `${VIDEO_TITLE} #${folders.length}
+          title: `#${db.video_id} ${VIDEO_TITLE} - ${post.data.title}`,
+          description: `This is #1 top post from subreddit ${post.data.subreddit_name_prefixed}   
+          Post's author: ${post.data.author} 
+          Upvotes: ${post.data.ups}
+          Downvotes: ${post.data.downs}
+          Comments: ${post.data.num_comments}
+          Uploaded on: ${date.toISOString().slice(0, 10)} ${date.getHours()}:${date.getMinutes()}
+
+          --------------------------
+          Sources:
+          - Reddit post: ${post.data.url}
+          - Beautiful background from ${filePath.slice(0, -4).trim()}
 
           ${tags.join(" ")}`,
           tags,
@@ -156,12 +157,11 @@ async function uploadVideoFileToYoutube(video: any, filePath: string) {
         status: {
           embeddable: true,
           privacyStatus: "private",
-          selfDeclaredMadeForKids: true,
+          selfDeclaredMadeForKids: !post.data.over_18,
         },
       },
       // required
       part: ["snippet", "status"],
-
       // Create the readable stream to upload the video
       media: {
         body: fs.createReadStream(filePath),
@@ -170,7 +170,10 @@ async function uploadVideoFileToYoutube(video: any, filePath: string) {
     (err, data) => {
       if (err) throw err;
 
-      console.log(`Video #${folders.length} uploaded successfully`);
+      db.video_id = db.video_id + 1;
+      console.log(`Video ${VIDEO_TITLE} #${db.video_id} uploaded successfully`);
+
+      console.log(`Done in ${performance.now() - now} ms`);
       process.exit();
     }
   );
