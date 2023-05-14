@@ -1,6 +1,5 @@
 import { PollyClient, StartSpeechSynthesisTaskCommand } from "@aws-sdk/client-polly";
 import { getObjectsListing, saveSpeechFiles } from "./AWSS3";
-import { join } from "path";
 
 export default async function getCompletedSpeechObjectsList(texts: string[]): Promise<null | string[]> {
   const client = new PollyClient({

@@ -1,7 +1,7 @@
 import ffmpeg, { FilterSpecification } from "fluent-ffmpeg";
 import { join } from "path";
-import Screenshoter from "./Screenshoter";
 import mergeMp3Files from "./mergeMp3Files";
+import Screenshoter from "./Screenshoter";
 
 export interface ScreenshotWithSpeechFile {
   screenshot: string;
@@ -79,6 +79,10 @@ export async function editVideo(videoFile: string, mergedData: ScreenshotWithSpe
       .on("end", function (err) {
         if (!err) {
           console.log("Video conversion done");
+
+          //runs in background
+          Screenshoter.removeScreenshots();
+
           resolve(outputFilePath);
         }
       })

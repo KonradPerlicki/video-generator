@@ -1,7 +1,5 @@
 import axios from "axios";
-import dotenv from "dotenv";
 import qs from "qs";
-dotenv.config();
 import { Listing, Post } from "reddit-types";
 
 export default class Reddit {

@@ -1,14 +1,4 @@
-import {
-  Page,
-  Browser,
-  launch,
-  TimeoutError,
-  ElementHandle,
-  ScreenshotClip,
-  ScreenshotOptions,
-} from "puppeteer";
-import dotenv from "dotenv";
-dotenv.config();
+import { Page, Browser, launch, TimeoutError, ElementHandle, ScreenshotOptions } from "puppeteer";
 import joinImages from "join-images";
 import { join } from "path";
 import fs from "node:fs/promises";

@@ -8,14 +8,11 @@ import Screenshoter from "./Screenshoter";
 import { ScreenshotWithSpeechFile, editVideo } from "./editVideo";
 import Reddit from "./Reddit";
 import getCompletedSpeechObjectsList from "./AWSPolly";
-import { saveSpeechFiles } from "./AWSS3";
 import getMP3Duration from "get-mp3-duration";
-import { ListingChildren, Post } from "reddit-types";
-import { launch } from "puppeteer";
+import { ListingChildren } from "reddit-types";
 import express from "express";
 import kfs from "key-file-storage";
 import { GetAccessTokenResponse } from "google-auth-library/build/src/auth/oauth2client";
-import { GaxiosError } from "gaxios";
 const db = kfs(join(__dirname, "..", "db"));
 
 const now = performance.now();
@@ -97,9 +94,6 @@ let accessToken: GetAccessTokenResponse;
     }));
 
     const videoName = await editVideo(backgroundVideo, mergedData);
-
-    //runs in background
-    Screenshoter.removeScreenshots();
 
     await uploadVideoFileToYoutube(videoName, post);
   } catch (e) {
