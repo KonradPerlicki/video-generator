@@ -119,30 +119,33 @@ async function uploadVideoFileToYoutube(filePath: string, post: ListingChildren)
     access_token: accessToken.token,
   });
 
-  const tags = ["#reddit", `#${post.data.subreddit}`, "#redditstory", "#top", "#trending"];
+  const tags = [`#${post.data.subreddit}`, "#reddit", "#redditstory", "#redditstories", "#top", "#trending"];
   const date = new Date();
 
-  console.log(`Uploading video to youtube`);
+  console.log(`Uploading video to youtube...`);
+
+  const title = `#${db.video_id} ${VIDEO_TITLE} - ${post.data.title.match(/^(.*?)[.?!]\s/)![0]}`;
 
   youtube.videos.insert(
     {
       requestBody: {
         // Video information
         snippet: {
-          title: `#${db.video_id} ${VIDEO_TITLE} - ${post.data.title}`,
-          description: `This is #1 top post from subreddit ${post.data.subreddit_name_prefixed}   
-          Post's author: ${post.data.author} 
-          Upvotes: ${post.data.ups}
-          Downvotes: ${post.data.downs}
-          Comments: ${post.data.num_comments}
-          Uploaded on: ${date.toISOString().slice(0, 10)} ${date.getHours()}:${date.getMinutes()}
+          title: title.length > 100 ? title.slice(0, 99) + "…" : title,
+          description: `${post.data.title}
+This is #1 top post from subreddit ${post.data.subreddit_name_prefixed}   
+Post's author: ${post.data.author} 
+Upvotes: ${post.data.ups}
+Downvotes: ${post.data.downs}
+Comments: ${post.data.num_comments}
+Uploaded on: ${date.toISOString().slice(0, 10)} ${date.getHours()}:${date.getMinutes()}
 
-          --------------------------
-          Sources:
-          - Reddit post: ${post.data.url}
-          - Beautiful background from ${filePath.slice(0, -4).trim()}
+--------------------------
+Sources:
+- Reddit post: ${post.data.url}
+- Beautiful background from ${filePath.slice(0, -4).trim()}
 
-          ${tags.join(" ")}`,
+${tags.join(" ")}`,
           tags,
           categoryId: "24", // Entertainment category
         },
@@ -161,9 +164,9 @@ async function uploadVideoFileToYoutube(filePath: string, post: ListingChildren)
     },
     (err, data) => {
       if (err) throw err;
+      console.log(`Video ${VIDEO_TITLE} #${db.video_id} uploaded successfully`);
 
       db.video_id = db.video_id + 1;
-      console.log(`Video ${VIDEO_TITLE} #${db.video_id} uploaded successfully`);
 
       console.log(`Done in ${performance.now() - now} ms`);
       process.exit();

@@ -23,6 +23,7 @@
     "ffmpeg": "^0.0.4",
     "fluent-ffmpeg": "^2.1.2",
     "get-mp3-duration": "^1.0.0",
+    "get-video-duration": "^4.1.0",
     "google-auth-library": "^8.7.0",
     "googleapis": "^118.0.0",
     "join-images": "^1.1.5",

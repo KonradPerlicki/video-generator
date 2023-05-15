@@ -2,6 +2,8 @@ import axios from "axios";
 import qs from "qs";
 import { Listing, Post } from "reddit-types";
 
+const subreddit = "nosleep";
+
 export default class Reddit {
   private credentrials: string;
 
@@ -42,7 +44,7 @@ export default class Reddit {
 
       const postListing = await axios<Listing>({
         method: "get",
-        url: "https://oauth.reddit.com/r/nosleep/top",
+        url: `https://oauth.reddit.com/r/${subreddit}/top`,
         headers: {
           Authorization: `Bearer ${accessToken}`,
         },
@@ -69,7 +71,7 @@ export default class Reddit {
     const strippedHtmlTags = post.selftext_html.replace(/<\/?[^>]+(>|$)/g, "");
     const paragraphsArray = strippedHtmlTags.split("\n\n");
     const result: string[] = [];
-    const ssmlOpeningTag = `<speak><prosody rate="120%">`;
+    const ssmlOpeningTag = `<speak><prosody rate="115%">`;
     const ssmlClosingTag = `</prosody></speak>`;
 
     result.push(`${ssmlOpeningTag}${post.title}${ssmlClosingTag}`);

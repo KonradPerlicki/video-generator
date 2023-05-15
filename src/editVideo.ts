@@ -4,7 +4,9 @@ import mergeMp3Files from "./mergeMp3Files";
 import Screenshoter from "./Screenshoter";
 import fs from "fs";
 import kfs from "key-file-storage";
+import getMP3Duration from "get-mp3-duration";
 const db = kfs(join(__dirname, "..", "db"));
+import { getVideoDurationInSeconds } from "get-video-duration";
 
 export interface ScreenshotWithSpeechFile {
   screenshot: string;
@@ -43,13 +45,22 @@ export async function editVideo(mergedData: ScreenshotWithSpeechFile[]): Promise
     },
   ];
 
-  const video = ffmpeg(join(__dirname, "..", "backgroundvideo", videoFile)).setStartTime(1);
+  const video = ffmpeg(join(__dirname, "..", "backgroundvideo", videoFile));
 
   const mergedSpeechFilesPath = "audio.mp3";
   await mergeMp3Files(
     mergedData.map((data) => data.speechFile),
     mergedSpeechFilesPath
   );
+
+  const mp3Duration = getMP3Duration(fs.readFileSync(mergedSpeechFilesPath));
+  const mp4Duration = await getVideoDurationInSeconds(join(__dirname, "..", "backgroundvideo", videoFile));
+  const isMp3LongerThanMp4 =
+    (db.videos_last_duration[videoFile].lastDuration + mp3Duration) * 1000 > mp4Duration;
+
+  const startTime = isMp3LongerThanMp4
+    ? new Date(0)
+    : new Date(db.videos_last_duration[videoFile].lastDuration);
 
   video.addInput(mergedSpeechFilesPath);
 
@@ -78,9 +89,13 @@ export async function editVideo(mergedData: ScreenshotWithSpeechFile[]): Promise
     complexFilter.push(filter);
   }
 
-  const outputFilePath = new Date().toISOString().slice(0, 10) + videoFile;
+  const outputFilePath = videoFile;
 
-  video.setDuration(totalDuration).complexFilter(complexFilter).output(outputFilePath);
+  video
+    .setStartTime(startTime.toISOString().slice(11, 19))
+    .setDuration(totalDuration)
+    .complexFilter(complexFilter)
+    .output(outputFilePath);
 
   console.log("Starting video editing...");
 
@@ -92,6 +107,10 @@ export async function editVideo(mergedData: ScreenshotWithSpeechFile[]): Promise
 
           //runs in background
           Screenshoter.removeScreenshots();
+
+          db.videos_last_duration[videoFile].lastDuration = new Date(
+            startTime.getTime() + mp3Duration
+          ).getTime();
 
           resolve(outputFilePath);
         }
