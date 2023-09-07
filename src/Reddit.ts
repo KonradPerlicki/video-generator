@@ -1,13 +1,14 @@
 import axios from "axios";
 import qs from "qs";
-import { Listing, Post } from "reddit-types";
-
-const subreddit = "nosleep";
+import { Listing, ListingData, Post } from "reddit-types";
 
 export default class Reddit {
-  private credentrials: string;
+  private readonly credentrials: string;
+  private readonly paragraphsPerSlide: number;
+  private readonly ssmlSpeechSpeed = "115%";
 
-  constructor(private readonly paragraphsPerSlide: number, private limit = 1) {
+  constructor(private maxRetries = 5, private readonly limit = 5) {
+    this.paragraphsPerSlide = Number(process.env.PARAGRAPHS_PER_SLIDE);
     this.credentrials = Buffer.from(`${process.env.CLIENT_ID}:${process.env.CLIENT_SECRET}`).toString(
       "base64"
     );
@@ -36,7 +37,32 @@ export default class Reddit {
     }
   }
 
-  public async getListing() {
+  public async getFirstPostWithLength(subreddit: string, length: number): Promise<Post | null> {
+    const postListing = await this.getListing(subreddit);
+    if (!postListing) return null;
+
+    const acceptableLength = length * 0.35;
+
+    for (const { data: post } of postListing.children) {
+      if (this.checkPostContentLength(post, length, acceptableLength)) {
+        return post;
+      }
+    }
+
+    console.log("No posts found with given length: %d +/- %d", length, acceptableLength);
+    return null;
+  }
+
+  private checkPostContentLength(post: Post, length: number, acceptableLength: number): boolean {
+    const strippedHtmlTags = post.selftext_html.replace(/<\/?[^>]+(>|$)/g, "");
+    return (
+      length - acceptableLength < strippedHtmlTags.length &&
+      strippedHtmlTags.length < length + acceptableLength
+    );
+  }
+
+  private async getListing(subreddit: string): Promise<ListingData | null> {
+    this.maxRetries--;
     const accessTokenResponse = await this.getAccessToken();
 
     if (accessTokenResponse && accessTokenResponse.data.access_token) {
@@ -63,18 +89,19 @@ export default class Reddit {
       console.log("Access token does not exist in response");
     }
 
-    //If posts were not returned, cancel running script
-    process.exit();
+    if (this.maxRetries > 0) {
+      return this.getListing(subreddit);
+    } else {
+      return null;
+    }
   }
 
-  public getDividedParagraphsFromPost(post: Post) {
+  public getDividedParagraphsFromPost(post: Post): string[] {
     const strippedHtmlTags = post.selftext_html.replace(/<\/?[^>]+(>|$)/g, "");
     const paragraphsArray = strippedHtmlTags.split("\n\n");
     const result: string[] = [];
-    const ssmlOpeningTag = `<speak><prosody rate="115%">`;
-    const ssmlClosingTag = `</prosody></speak>`;
 
-    result.push(`${ssmlOpeningTag}${post.title}${ssmlClosingTag}`);
+    result.push(this.wrapTextInSsmlTag(post.title));
 
     let tmp: string[] = [];
     for (const paragraph of paragraphsArray) {
@@ -83,16 +110,20 @@ export default class Reddit {
       tmp.push(paragraph);
 
       if (tmp.length === this.paragraphsPerSlide) {
-        result.push(`${ssmlOpeningTag}${tmp.join(" ")}${ssmlClosingTag}`);
+        result.push(this.wrapTextInSsmlTag(tmp.join(" ")));
         tmp = [];
       }
     }
 
     //in case when total number of paragraphs is not dividable by this.paragraphsPerSlide
     if (tmp.length > 0) {
-      result.push(`${ssmlOpeningTag}${tmp.join(" ")}${ssmlClosingTag}`);
+      result.push(this.wrapTextInSsmlTag(tmp.join(" ")));
     }
 
     return result;
+  }
+
+  private wrapTextInSsmlTag(text: string): string {
+    return `<speak><prosody rate="${this.ssmlSpeechSpeed}">${text}</prosody></speak>`;
   }
 }

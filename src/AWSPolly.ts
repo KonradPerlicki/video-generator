@@ -1,7 +1,7 @@
 import { PollyClient, StartSpeechSynthesisTaskCommand } from "@aws-sdk/client-polly";
 import { getObjectsListing, saveSpeechFiles } from "./AWSS3";
 
-export default async function getCompletedSpeechObjectsList(texts: string[]): Promise<null | string[]> {
+export default async function getCompletedSpeechObjectsList(texts: string[]): Promise<never | string[]> {
   const client = new PollyClient({
     region: "eu-west-2",
     credentials: {
@@ -20,7 +20,7 @@ export default async function getCompletedSpeechObjectsList(texts: string[]): Pr
       LanguageCode: "en-US",
       OutputFormat: "mp3",
       OutputS3BucketName: process.env.AWS_BUCKETNAME as string,
-      OutputS3KeyPrefix: "reddit",
+      OutputS3KeyPrefix: process.env.AWS_BUCKET_PREFIX as string,
       Text: text,
       TextType: "ssml",
       VoiceId: "Matthew",
@@ -39,7 +39,7 @@ export default async function getCompletedSpeechObjectsList(texts: string[]): Pr
     }
   }
 
-  console.log("DONE");
+  console.log("DONE - sent all speech commands");
 
   //waiting for speech files to show up in s3 bucket
   return new Promise((resolve, reject) => {
@@ -51,7 +51,7 @@ export default async function getCompletedSpeechObjectsList(texts: string[]): Pr
 
       if (maxRetries === 0) {
         clearInterval(interval);
-        return reject(null);
+        throw new Error(`No speech files`);
       }
 
       const listing = await getObjectsListing();
@@ -64,6 +64,6 @@ export default async function getCompletedSpeechObjectsList(texts: string[]): Pr
 
         return resolve(filesNames);
       }
-    }, 4000);
+    }, 3000);
   });
 }

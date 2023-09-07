@@ -12,8 +12,8 @@ const client = new S3Client({
   },
 });
 
-export async function saveSpeechFiles(objectsKey: string[]) {
-  console.log("Objects to fetch:", objectsKey);
+export async function saveSpeechFiles(objectsKey: string[]): Promise<void> {
+  console.log("Speech objects to fetch:", objectsKey);
 
   for (const key of objectsKey) {
     const command = new GetObjectCommand({
@@ -40,7 +40,7 @@ export async function saveSpeechFiles(objectsKey: string[]) {
   }
 }
 
-export async function deleteObject(key: string, versionId?: string) {
+export async function deleteObject(key: string, versionId?: string): Promise<void> {
   const command = new DeleteObjectCommand({
     Key: key,
     VersionId: versionId,
@@ -58,7 +58,7 @@ export async function deleteObject(key: string, versionId?: string) {
 
 export async function getObjectsListing() {
   const listing = new ListObjectsV2Command({
-    Prefix: "reddit",
+    Prefix: process.env.AWS_BUCKET_PREFIX as string,
     Bucket: process.env.AWS_BUCKETNAME as string,
   });
 
@@ -66,7 +66,7 @@ export async function getObjectsListing() {
   return response.Contents;
 }
 
-export async function removeSpeechFiles() {
+export async function removeSpeechFiles(): Promise<void> {
   console.log("Removing all speech files...");
 
   for (const file of await fs.readdir(join(__dirname, "..", "mp3"))) {

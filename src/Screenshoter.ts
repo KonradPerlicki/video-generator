@@ -3,6 +3,7 @@ import joinImages from "join-images";
 import { join } from "path";
 import fs from "node:fs/promises";
 import sharp from "sharp";
+import { ListingChildren, Post } from "reddit-types";
 
 const selectors = {
   title: "[slot='title']",
@@ -15,15 +16,19 @@ export type RedditElements = (typeof elements)[number];
 const screenshotsFolder = join(__dirname, "..", "screenshots");
 
 export default class Screenshoter {
+  private readonly viewPortHeight = 1080;
+  private readonly viewPortWidth = 500;
+  private readonly paragraphsPerSlide: number;
+
   private browser: Browser;
   private page: Page;
-  private readonly viewPortWidth = 500;
-  private readonly viewPortHeight = 1080;
   private mergedBodyImagesPath: string[] = [];
 
-  constructor(private readonly paragraphsPerSlide: number) {}
+  constructor() {
+    this.paragraphsPerSlide = Number(process.env.PARAGRAPHS_PER_SLIDE);
+  }
 
-  public async init(url: string) {
+  public async init(url: string): Promise<void> {
     this.browser = await launch({
       executablePath: process.env.CHROME_PATH,
       headless: "new",
@@ -41,31 +46,35 @@ export default class Screenshoter {
     await this.gotoPage(url);
   }
 
-  public static async removeScreenshots(filenameLike?: string) {
-    console.log(
-      filenameLike ? `Removing screenshots with ${filenameLike} in filename` : "Removing all screenshots..."
-    );
+  public async getPostAllScreenshots(post: Post): Promise<string[]> {
+    const screenshots: string[] = [];
 
+    await this.init(post.url);
+
+    const mergedTitleHeaderPath = await this.takeScreenshotOfTitleWithHeader();
+    screenshots.push(mergedTitleHeaderPath);
+    await this.takeScreenshotOfBody();
+    screenshots.push(...this.mergedBodyImagesPath);
+
+    await this.close();
+    return screenshots;
+  }
+
+  public static async removeScreenshots(): Promise<void> {
     for (const file of await fs.readdir(screenshotsFolder)) {
-      if (filenameLike) {
-        if (file.includes(filenameLike)) {
-          await fs.unlink(join(screenshotsFolder, file));
-        }
-      } else {
-        await fs.unlink(join(screenshotsFolder, file));
-      }
+      await fs.unlink(join(screenshotsFolder, file));
     }
 
     console.log("Screenshots removed");
   }
 
-  public async close() {
+  public async close(): Promise<void> {
     console.log("Closing browser...");
     await this.browser.close();
     console.log("Browser closed");
   }
 
-  private async gotoPage(url: string) {
+  private async gotoPage(url: string): Promise<void> {
     const page = await this.browser.newPage();
 
     await page.goto(url, {
@@ -101,14 +110,14 @@ export default class Screenshoter {
     this.page = page;
   }
 
-  public getMergedBodyImagesPath() {
-    return this.mergedBodyImagesPath;
-  }
-
-  public async takeScreenshotOfElement(elementName: RedditElements, filename: string, addMargin?: boolean) {
+  public async takeScreenshotOfElement(
+    elementName: RedditElements,
+    filename: string,
+    addMargin?: boolean
+  ): Promise<void> {
     const page = this.page;
     const selector = selectors[elementName];
-    let element: ElementHandle<Element> | ElementHandle<Element>[] | null;
+    let element: ElementHandle | ElementHandle[] | null;
 
     console.log("Waiting for selector...");
     await page.waitForSelector(selector);
@@ -120,7 +129,7 @@ export default class Screenshoter {
         console.log("Revealing the whole post content...");
         const button = await page.evaluateHandle(`document.querySelector("[id*='read-more-button']")`);
         if (button) await button.asElement().click();
-        console.log("OK");
+        console.log("Revealed post content");
       } catch (e) {
         console.log("Something went wrong while revealing the post content: ", e);
       }
@@ -146,7 +155,6 @@ export default class Screenshoter {
             path: join(screenshotsFolder, filename),
           };
 
-          //TODO zamiast addMargin boolean zrobic obiekt i typ do niego gdzie mozna wybierac czy tylko gora dol czy lewo prawo margines itp
           if (addMargin) {
             const boundingBox = await element.boundingBox();
             if (boundingBox) {
@@ -171,7 +179,7 @@ export default class Screenshoter {
     }
   }
 
-  private async takeScreenshotsOfBodyParagraphs(element: ElementHandle<Element>[], filename: string) {
+  private async takeScreenshotsOfBodyParagraphs(element: ElementHandle[], filename: string): Promise<void> {
     let tmpPaths: string[] = [];
 
     console.log("Starting taking body's screenshots...");
@@ -199,18 +207,17 @@ export default class Screenshoter {
     console.log("Finished");
   }
 
-  //TODO
-  public async takeScreenshotOfComment(id: string, assetsDir: string) {
+  public async takeScreenshotOfComment(id: string, assetsDir: string): Promise<{ id: string; path: string }> {
     const savePath = `${assetsDir}/comments/${id}.png`;
     await this.takeScreenshotOfElement("comment", savePath);
     return { id: id, path: savePath };
   }
 
-  public async takeScreenshotOfBody() {
+  public async takeScreenshotOfBody(): Promise<void> {
     await this.takeScreenshotOfElement("body", "paragraph");
   }
 
-  public async takeScreenshotOfTitleWithHeader() {
+  public async takeScreenshotOfTitleWithHeader(): Promise<string> {
     const headerName = `header.png`;
     await this.takeScreenshotOfElement("header", headerName);
 
@@ -227,13 +234,13 @@ export default class Screenshoter {
     return join(screenshotsFolder, mergedTitleHeaderPath);
   }
 
-  public async mergeParagraphPhotos(photosPath: string[], index: number) {
+  public async mergeParagraphPhotos(photosPath: string[], index: number): Promise<void> {
     const filename = `body${index}.png`;
     this.mergedBodyImagesPath.push(join(screenshotsFolder, filename));
     await this.mergeImages(photosPath, filename);
   }
 
-  private async mergeImages(images: string[], filename: string, deleteMergedImages = true) {
+  private async mergeImages(images: string[], filename: string, deleteMergedImages = true): Promise<void> {
     const mergedImages = await joinImages(images, {
       direction: "vertical",
       //colors from reddit's dark theme
@@ -245,7 +252,7 @@ export default class Screenshoter {
     });
 
     await mergedImages.toFile("tmp.png");
-    await sharp("tmp.png").resize(680).toFile(join(screenshotsFolder, filename));
+    await sharp("tmp.png").resize(660).toFile(join(screenshotsFolder, filename));
     await fs.unlink("tmp.png");
 
     if (deleteMergedImages) {

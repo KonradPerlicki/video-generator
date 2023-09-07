@@ -1,25 +1,17 @@
 import ffmpeg, { FilterSpecification } from "fluent-ffmpeg";
 import { join } from "path";
 import mergeMp3Files from "./mergeMp3Files";
-import Screenshoter from "./Screenshoter";
 import fs from "fs";
-import kfs from "key-file-storage";
 import getMP3Duration from "get-mp3-duration";
-const db = kfs(join(__dirname, "..", "db"));
 import { getVideoDurationInSeconds } from "get-video-duration";
 
-export interface ScreenshotWithSpeechFile {
+export interface ScreenshotWithSpeechData {
   screenshot: string;
   speechFile: string;
   duration: number;
 }
 
-interface LastVideo {
-  file: string;
-  index: number;
-}
-
-export async function editVideo(mergedData: ScreenshotWithSpeechFile[]): Promise<string> {
+export async function createVideo(mergedData: ScreenshotWithSpeechData[]): Promise<string> {
   const videoFile = getBackgroundVideo();
 
   const complexFilter: Array<FilterSpecification> = [
@@ -45,22 +37,17 @@ export async function editVideo(mergedData: ScreenshotWithSpeechFile[]): Promise
     },
   ];
 
-  const video = ffmpeg(join(__dirname, "..", "backgroundvideo", videoFile));
-
   const mergedSpeechFilesPath = "audio.mp3";
   await mergeMp3Files(
     mergedData.map((data) => data.speechFile),
     mergedSpeechFilesPath
   );
 
-  const mp3Duration = getMP3Duration(fs.readFileSync(mergedSpeechFilesPath));
+  const mp3Duration = getMP3Duration(fs.readFileSync(mergedSpeechFilesPath)) / 1000;
   const mp4Duration = await getVideoDurationInSeconds(join(__dirname, "..", "backgroundvideo", videoFile));
-  const isMp3LongerThanMp4 =
-    (db.videos_last_duration[videoFile].lastDuration + mp3Duration) * 1000 > mp4Duration;
 
-  const startTime = isMp3LongerThanMp4
-    ? new Date(0)
-    : new Date(db.videos_last_duration[videoFile].lastDuration);
+  const startTime = getStartTime(mp3Duration, mp4Duration);
+  const video = ffmpeg(join(__dirname, "..", "backgroundvideo", videoFile)).setStartTime(startTime);
 
   video.addInput(mergedSpeechFilesPath);
 
@@ -68,6 +55,7 @@ export async function editVideo(mergedData: ScreenshotWithSpeechFile[]): Promise
   for (const [index, data] of mergedData.entries()) {
     const mp3RoundedDuration = Number((data.duration / 1000).toFixed(3));
     video.addInput(data.screenshot);
+    console.log(data.screenshot);
 
     const filter: FilterSpecification = {
       filter: "overlay",
@@ -89,13 +77,7 @@ export async function editVideo(mergedData: ScreenshotWithSpeechFile[]): Promise
     complexFilter.push(filter);
   }
 
-  const outputFilePath = videoFile;
-
-  video
-    .setStartTime(startTime.toISOString().slice(11, 19))
-    .setDuration(totalDuration)
-    .complexFilter(complexFilter)
-    .output(outputFilePath);
+  video.setDuration(totalDuration).complexFilter(complexFilter).output(videoFile);
 
   console.log("Starting video editing...");
 
@@ -105,14 +87,7 @@ export async function editVideo(mergedData: ScreenshotWithSpeechFile[]): Promise
         if (!err) {
           console.log("Video conversion done");
 
-          //runs in background
-          Screenshoter.removeScreenshots();
-
-          db.videos_last_duration[videoFile].lastDuration = new Date(
-            startTime.getTime() + mp3Duration
-          ).getTime();
-
-          resolve(outputFilePath);
+          resolve(videoFile);
         }
       })
       .on("errors", (err) => {
@@ -122,21 +97,14 @@ export async function editVideo(mergedData: ScreenshotWithSpeechFile[]): Promise
   });
 }
 
-function getBackgroundVideo() {
-  const backgrounds = fs.readdirSync(join(__dirname, "..", "backgroundvideo"));
-  const lastVideo: LastVideo = db.last_video;
+function getStartTime(mp3Duration: number, mp4Duration: number): string {
+  const possibleStartTime = mp4Duration - mp3Duration;
 
-  if (lastVideo.index === backgrounds.length - 1) {
-    db.last_video = {
-      file: backgrounds[0],
-      index: 0,
-    };
-    return backgrounds[0];
-  } else {
-    db.last_video = {
-      file: backgrounds[lastVideo.index + 1],
-      index: lastVideo.index + 1,
-    };
-    return backgrounds[lastVideo.index + 1];
-  }
+  return `${Math.floor(possibleStartTime / 60)}:${possibleStartTime % 60}`;
+}
+
+function getBackgroundVideo(): string {
+  const backgrounds = fs.readdirSync(join(__dirname, "..", "backgroundvideo"));
+
+  return backgrounds[Math.floor(Math.random() * backgrounds.length)];
 }
